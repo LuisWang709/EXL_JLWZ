@@ -46,4 +46,36 @@ def read_any(dataset: Dataset, **overrides: Any) -> pd.DataFrame:
     sas7bdat/xpt -> pyreadstat, rds/rdata -> pyreadr (optional), json/jsonl -> pandas.read_json.
     ``dataset.read_options`` + ``overrides`` are passed through to the reader.
     """
-    raise NotImplementedError
+    import pandas as pd
+
+    fmt = dataset.format or infer_format(dataset.uri)
+    opts: dict[str, Any] = {**dataset.read_options, **overrides}
+
+    if fmt == DatasetFormat.CSV:
+        return pd.read_csv(dataset.uri, **opts)
+    if fmt == DatasetFormat.TSV:
+        return pd.read_csv(dataset.uri, sep="\t", **opts)
+    if fmt == DatasetFormat.PARQUET:
+        return pd.read_parquet(dataset.uri, **opts)
+    if fmt == DatasetFormat.FEATHER:
+        return pd.read_feather(dataset.uri, **opts)
+    if fmt == DatasetFormat.XLSX:
+        return pd.read_excel(dataset.uri, **opts)
+    if fmt == DatasetFormat.XLS:
+        return pd.read_excel(dataset.uri, **opts)
+    if fmt == DatasetFormat.JSON:
+        return pd.read_json(dataset.uri, **opts)
+    if fmt == DatasetFormat.JSONL:
+        return pd.read_json(dataset.uri, lines=True, **opts)
+    if fmt in (DatasetFormat.SAS7BDAT, DatasetFormat.XPT):
+        try:
+            import pyreadstat  # type: ignore
+
+            df, _ = pyreadstat.read_sas7bdat(dataset.uri) if fmt == DatasetFormat.SAS7BDAT else pyreadstat.read_xport(dataset.uri)
+            return df
+        except ImportError as exc:  # pragma: no cover - optional dep
+            raise ImportError("pyreadstat is required for SAS/XPT; install the 'data' extra") from exc
+    if fmt in (DatasetFormat.RDS, DatasetFormat.RDATA):
+        raise NotImplementedError("R data files need pyreadr; not yet wired")
+
+    raise ValueError(f"unsupported format: {fmt}")

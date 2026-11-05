@@ -1,0 +1,14 @@
+{
+  "intercept": -1.9717426259300472,
+  "checking_status_A11": 1.6886792767945102,
+  "checking_status_A12": 1.2603692888080529,
+  "checking_status_A13": 0.8042473172300736,
+  "credit_history_A30": 1.18848010382658,
+  "credit_history_A31": 1.0786560197630524,
+  "credit_history_A32": 0.4959457093302547,
+  "credit_history_A33": 0.47023706254816106,
+  "age_band_1": 0.16973149218071099,
+  "age_band_2": 0.16647820257778603,
+  "duration_months": 0.03838156220610547,
+  "log_amount": -0.15741986820928477
+}

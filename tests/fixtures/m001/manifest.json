@@ -1,0 +1,23 @@
+{
+  "model_id": "M001",
+  "name": "Retail application PD scorecard",
+  "source_language": "SAS",
+  "algorithm": "Logistic regression (logit link, reference coding)",
+  "target": "default_flag (1 = bad credit)",
+  "record_id_column": "id",
+  "score_column": "pd_legacy",
+  "tolerance": 0.0001,
+  "feature_columns": [
+    "checking_status_A11",
+    "checking_status_A12",
+    "checking_status_A13",
+    "credit_history_A30",
+    "credit_history_A31",
+    "credit_history_A32",
+    "credit_history_A33",
+    "age_band_1",
+    "age_band_2",
+    "duration_months",
+    "log_amount"
+  ]
+}
