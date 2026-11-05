@@ -15,10 +15,10 @@
 
 ```mermaid
 flowchart LR
-    RAW[原始数据<br/>任意格式] -->|scripts/get_data.py A2| L[data/raw/]
+    RAW[原始数据<br/>任意格式] -->|scripts/get_data.py A2| L["data/raw/"]
     L -->|POST /datasets 登记 uri| REG[Dataset 记录]
     REG -->|mrf.data.io.read_any| DF[pandas DataFrame]
-    DF -->|清洗流水线 A2| CLEAN[data/clean/*.parquet]
+    DF -->|清洗流水线 A2| CLEAN["data/clean/*.parquet"]
     CLEAN -->|pandera schema| QC[质量检查 A4]
     QC -->|通过| RUN[可用性运行 / 批次]
     QC -->|不通过| X[MRF-3101 拒绝]
