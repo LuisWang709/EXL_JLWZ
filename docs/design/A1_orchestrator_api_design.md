@@ -1,6 +1,6 @@
 # A1 设计文档 — 编排器 · 统一 API · LLM 封装 · 存储 · MCP 框架 · 识别智能体
 
-作者：A1 Albert · 分支 `feat/a1-orchestrator` · 状态：草案 v0.1（2026-11-05）
+作者：A1 Albert · 分支 `feat/a1-orchestrator` · 状态：v0.2（2026-11-05，§4–8 已实现，§9 识别智能体待实现）
 相关：[执行计划](../../C04%20A队执行计划%20—%20智能体模型风险工厂.md) · [openapi.yaml](../../openapi.yaml) · [架构总览](../architecture.md) · [A1 任务书](../team/A1.md)
 
 ---
@@ -32,7 +32,7 @@ A1 负责“骨架和神经”。它把一份上传的代码变成一条**可暂
 | 任务执行器 | **进程内 asyncio 队列 + DB jobs 表** | 零额外基础设施；Container Apps 单副本足够；重启后靠 jobs 表 + LangGraph 检查点续跑 | Celery+Redis 超预算且配置重；Storage Queue 本地要 Azurite、链路长；BackgroundTasks 无状态、重启即丢 |
 | 持久化 | **Repository 协议 + 文档式存储**（SQLite JSON 列 / Cosmos） | 和 Cosmos 文档模型一一对应，切换只改配置；schema 演进成本低 | ORM：Cosmos 非关系库，要么换 Postgres（无免费层），要么写两套映射；纯 SQLite：网络盘上的锁不可靠 |
 | LLM 底座 | **openai SDK 直连 + 自写封装** | 一个 SDK 覆盖 Azure OpenAI、OpenAI、GitHub Models；重试规则可以严格实现计划里的 1s/2s/4s；Mock 好做 | LiteLLM 依赖重，且自带重试会和我们的分类重试叠加；LangChain 抽象层厚、token 细节被包住 |
-| MCP 框架 | **官方 `mcp` SDK（FastMCP）** | 官方维护、规范跟进快、内置 Streamable HTTP，MCP Inspector 兼容最好 | fastmcp 2.x 功能多但 API 变化快，和官方 SDK 并存容易混淆 |
+| MCP 框架 | **官方 `mcp` SDK 2.x（`MCPServer`，即 1.x 的 FastMCP）** | 官方维护、规范跟进快、内置 Streamable HTTP，MCP Inspector 兼容最好 | fastmcp 2.x 功能多但 API 变化快，和官方 SDK 并存容易混淆 |
 | 包管理 | uv（已在仓库） | 安装快、`uv.lock` 可复现、CI 有官方 action | poetry / pip-tools 更慢 |
 
 ## 3. 总体结构
@@ -105,12 +105,12 @@ flowchart LR
 class GraphState(TypedDict, total=False):
     pipeline_id: str
     model_id: str
-    state: PipelineState                 # 对外可见的状态，镜像到 Pipeline 文档
-    attempts: dict[str, int]             # {"doc": 2, "parity": 1}
-    feedback: list[str]                  # 上一次失败的意见（评级 comments / parity diff / 人工驳回）
-    artifacts: dict[str, str]            # doc_id, rating_id, rebuild_id, run_id, report_id ...
-    last_error: dict | None              # {"code": "MRF-3001", "message": ...}
-    resume_target: str | None            # 人工从 manual_review 指定的恢复节点
+    state: PipelineState  # 对外可见的状态，镜像到 Pipeline 文档
+    attempts: dict[str, int]  # {"doc": 2, "parity": 1}
+    feedback: list[str]  # 上一次失败的意见（评级 comments / parity diff / 人工驳回）
+    artifacts: dict[str, str]  # doc_id, rating_id, rebuild_id, run_id, report_id ...
+    last_error: dict | None  # {"code": "MRF-3001", "message": ...}
+    resume_target: str | None  # 人工从 manual_review 指定的恢复节点
 ```
 
 图状态只放 **id 和计数**，大对象（说明书全文、代码）存 Repository 和 Blob。这样检查点很小，也避免两份数据不一致。
@@ -177,8 +177,8 @@ sequenceDiagram
 
   ```python
   async def gate_h1(s: GraphState) -> Command:
-      review = await reviews.open(s, gate=Gate.H1, payload={...})   # 幂等：重放时复用同一个 review
-      decision = interrupt({"review_id": review.review_id})         # 暂停点
+      review = await reviews.open(s, gate=Gate.H1, payload={...})  # 幂等：重放时复用同一个 review
+      decision = interrupt({"review_id": review.review_id})  # 暂停点
       if decision["decision"] == "reject":
           return Command(goto="doc_draft", update={"feedback": [decision.get("comment", "")]})
       if decision["decision"] == "edit":
@@ -363,7 +363,7 @@ class BlobStore(Protocol):
 ```mermaid
 flowchart LR
     subgraph Server["mrf.mcp_server.server"]
-      F["FastMCP('mrf-tools', stateless_http=True)"]
+      F["MCPServer('mrf-tools')"]
       T["tools/*.py<br/>ALL_TOOLS"] -->|"mcp.tool()(fn)"| F
     end
     F -->|"streamable_http_app()"| M["FastAPI app.mount('/mcp')"]
@@ -378,7 +378,8 @@ flowchart LR
 ```
 
 - **注册**：负责人只需在 `tools/<area>.py` 里写带类型注解和 docstring 的 async 函数，并加入 `ALL_TOOLS`。FastMCP 会根据签名生成 JSON Schema，docstring 就是 LLM 看到的工具描述。
-- **挂载**：`app.mount("/mcp", mcp.streamable_http_app())`，并设置 `mcp.settings.streamable_http_path = "/"`，避免路径变成 `/mcp/mcp`。FastAPI 的 lifespan 里要 `async with mcp.session_manager.run():`。
+- **挂载**：`app.mount("/mcp", server.streamable_http_app(streamable_http_path="/", stateless_http=True, json_response=True))`，避免路径变成 `/mcp/mcp`；FastAPI 的 lifespan 里要 `async with server.session_manager.run():`。每个 app 新建一个 server，因为一个 session manager 只能 run 一次。
+- **错误透传**：SDK 会把工具抛出的普通异常隐藏成 “Error executing tool”，所以注册时包了一层，把 `MRFError` 转成 `ToolError("MRF-xxxx: …")`；客户端再从文本中解析出返回码，还原成 `MRFError`。
 - **ToolGateway**：`MRF_TOOL_TRANSPORT=inprocess`（默认，测试和单容器部署都用它，没有网络开销）或 `http`（工具服务独立部署时使用）。两者接口相同：
 
   ```python

@@ -1,9 +1,12 @@
 """Tool contracts. Signatures + docstrings are the contract (the docstring becomes the MCP
 tool description the LLM sees, so keep it precise). Owners replace ``NotImplementedError``."""
 
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from mrf.mcp_server.tools import data, inventory, kb, metrics, sandbox
 
-ALL_TOOLS = [
+ALL_TOOLS: list[Callable[..., Awaitable[Any]]] = [
     inventory.parse_code,
     inventory.get_inventory,
     data.profile_data,

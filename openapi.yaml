@@ -711,9 +711,10 @@ components:
       required: [job_id, kind, status]
       properties:
         job_id: { type: string }
-        kind: { type: string, enum: [pipeline, pipeline_resume, document, rebuild, run, report, monitoring] }
+        kind: { type: string, description: 'registered handler, e.g. pipeline, pipeline_resume, pipeline_reenter, document, rebuild, run' }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
         resource: { type: object, additionalProperties: { type: string } }
+        payload: { type: object, description: handler input }
         progress: { type: number, minimum: 0, maximum: 1 }
         result: { type: [object, "null"] }
         error: { type: [object, "null"] }

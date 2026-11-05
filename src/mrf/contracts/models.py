@@ -270,9 +270,12 @@ class ReviewDecision(_Base):
 # ------------------------------------------------------------------ jobs & pipelines
 class Job(_Base):
     job_id: str
-    kind: Literal["pipeline", "pipeline_resume", "document", "rebuild", "run", "report", "monitoring"]
+    kind: str = Field(
+        description="handler name: pipeline, pipeline_resume, pipeline_reenter, document, rebuild, run ..."
+    )
     status: Literal["queued", "running", "succeeded", "failed", "cancelled"] = "queued"
     resource: dict[str, str] = Field(default_factory=dict, description="e.g. {'pipeline_id': 'pl_..'}")
+    payload: dict[str, Any] = Field(default_factory=dict, description="handler input (request body, decision...)")
     progress: float = 0.0
     result: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
