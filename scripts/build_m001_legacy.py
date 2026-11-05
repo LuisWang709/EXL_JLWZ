@@ -76,7 +76,7 @@ def _design_matrix(df: pd.DataFrame) -> pd.DataFrame:
         ("credit_history", "A34", ["A30", "A31", "A32", "A33", "A34"]),
         ("age_band", 3, [1, 2, 3]),
     ]
-    for col, ref, cats in cats_map:
+    for col, _ref, cats in cats_map:
         df[col] = pd.Categorical(df[col], categories=cats)
 
     dummies = pd.get_dummies(
@@ -119,7 +119,7 @@ def main() -> int:
 
     # Coefficients as term -> estimate, plus the intercept.
     coefficients = {"intercept": float(model.intercept_[0])}
-    for name, coef in zip(X.columns, model.coef_[0]):
+    for name, coef in zip(X.columns, model.coef_[0], strict=False):
         coefficients[name] = float(coef)
 
     # Predict on the test set (same design matrix encoding).

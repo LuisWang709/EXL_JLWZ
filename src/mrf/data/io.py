@@ -71,7 +71,10 @@ def read_any(dataset: Dataset, **overrides: Any) -> pd.DataFrame:
         try:
             import pyreadstat  # type: ignore
 
-            df, _ = pyreadstat.read_sas7bdat(dataset.uri) if fmt == DatasetFormat.SAS7BDAT else pyreadstat.read_xport(dataset.uri)
+            if fmt == DatasetFormat.SAS7BDAT:
+                df, _ = pyreadstat.read_sas7bdat(dataset.uri)
+            else:
+                df, _ = pyreadstat.read_xport(dataset.uri)
             return df
         except ImportError as exc:  # pragma: no cover - optional dep
             raise ImportError("pyreadstat is required for SAS/XPT; install the 'data' extra") from exc

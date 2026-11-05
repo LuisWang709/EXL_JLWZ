@@ -108,7 +108,7 @@ def main() -> int:
 
     # 3. coefficient comparison
     python_coef = {"intercept": float(model.intercept_[0])}
-    for name, coef in zip(X.columns, model.coef_[0]):
+    for name, coef in zip(X.columns, model.coef_[0], strict=False):
         python_coef[name] = float(coef)
     coef_diffs = {
         k: abs(legacy_coef.get(k, 0.0) - python_coef.get(k, 0.0))

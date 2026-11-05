@@ -30,7 +30,7 @@ class GermanCreditClean(pa.DataFrameModel):
     age_band: Series[int] = pa.Field(isin=[1, 2, 3])
     default_flag: Series[int] = pa.Field(isin=[0, 1])
 
-    class Config:  # noqa: D106
+    class Config:
         strict = False
         coerce = False
 

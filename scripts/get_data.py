@@ -88,14 +88,14 @@ def _download(ds: Dataset) -> Path:
     print(f"[get ] {ds.name}")
     print(f"       {ds.url}")
     try:
-        req = urllib.request.Request(ds.url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as out:
+        req = urllib.request.Request(ds.url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+        with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as out:  # noqa: S310
             while True:
                 chunk = resp.read(_CHUNK)
                 if not chunk:
                     break
                 out.write(chunk)
-    except Exception as exc:  # noqa: BLE001 - report any download failure clearly
+    except Exception as exc:
         print(f"[fail] {ds.name}: {exc}", file=sys.stderr)
         dest.unlink(missing_ok=True)
         return dest

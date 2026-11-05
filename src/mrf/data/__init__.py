@@ -9,10 +9,10 @@ from mrf.data.io import infer_format, read_any
 from mrf.data.schemas import SCHEMAS, get_schema, validate
 
 __all__ = [
-    "read_any",
-    "infer_format",
-    "clean",
     "SCHEMAS",
+    "clean",
     "get_schema",
+    "infer_format",
+    "read_any",
     "validate",
 ]
