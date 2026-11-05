@@ -69,7 +69,7 @@ def read_any(dataset: Dataset, **overrides: Any) -> pd.DataFrame:
         return pd.read_json(dataset.uri, lines=True, **opts)
     if fmt in (DatasetFormat.SAS7BDAT, DatasetFormat.XPT):
         try:
-            import pyreadstat  # type: ignore
+            import pyreadstat
 
             if fmt == DatasetFormat.SAS7BDAT:
                 df, _ = pyreadstat.read_sas7bdat(dataset.uri)
