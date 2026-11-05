@@ -1,0 +1,26 @@
+# Owner: A3. Draft rubric - weights must match config/pipeline.yaml (rating.*).
+version: 0
+rule_checks:              # 60 points total
+  section_completeness:   # SS1/23-aligned sections present and non-empty
+    weight: 20
+    required_sections:
+      - purpose_and_use
+      - data
+      - methodology
+      - assumptions_and_limitations
+      - performance
+      - implementation
+      - monitoring
+      - governance
+  evidence_coverage:      # every claim has Evidence
+    weight: 20
+  variable_consistency:   # variables in doc == parse_code features
+    weight: 20
+llm_review:               # 40 points total, independent prompt/context
+  methodology_accuracy: 15
+  limitations_adequacy: 15
+  clarity: 10
+veto:
+  - fabricated_variable
+  - fabricated_number
+pass_score: 80

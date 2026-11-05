@@ -1,0 +1,948 @@
+openapi: 3.1.0
+info:
+  title: Model Risk Factory API
+  version: 1.0.0-rc1
+  description: |
+    EXL Hackathon Challenge 04 - Team A. **Contract v1** (freeze target 11/3; changes need A1 approval).
+
+    Conventions
+    * Every response uses the `Envelope` (status: success | accepted | error; `errors` and `warnings` are always arrays).
+    * Long-running operations return **202** + `data.job_id`; poll `GET /api/v1/jobs/{job_id}`.
+    * Auth: `X-API-Key` header (demo). Review endpoints record the operator (`X-Operator` header).
+    * Idempotency: every POST accepts `Idempotency-Key`; a repeated key returns the same `job_id` / resource.
+    * Tracing: `X-Request-ID` (optional on request, always on response) equals `request_id` in the envelope.
+    * Paging: `?page=1&page_size=20`, paging info in `data.pagination`.
+    * snake_case fields, ISO-8601 UTC timestamps, prefixed ids (`pl_`, `job_`, `mdl_`, `doc_`, `rat_`, `rb_`, `ds_`, `run_`, `rpt_`, `rev_`, `alr_`).
+    * Breaking changes go to /api/v2; v1 never removes fields during the competition.
+    * MCP tool server is mounted at `/mcp` (Streamable HTTP) for agents only; not part of this API.
+  x-owners:
+    A1: [pipelines, models, reviews, jobs]
+    A2: [rebuilds, datasets (register), runs]
+    A3: [documents, ratings, reports (analysis, validation)]
+    A4: [datasets quality, reports (monitoring), monitoring, health]
+servers:
+  - url: http://localhost:8000
+    description: local
+security:
+  - ApiKey: []
+tags:
+  - name: pipelines
+  - name: models
+  - name: documents
+  - name: rebuilds
+  - name: datasets
+  - name: runs
+  - name: reports
+  - name: reviews
+  - name: monitoring
+  - name: jobs
+  - name: health
+
+paths:
+  # ------------------------------------------------------------------ A1
+  /api/v1/pipelines:
+    post:
+      tags: [pipelines]
+      operationId: createPipeline
+      x-owner: A1
+      summary: Upload SAS/R/Python model code (+ dataset refs) and start the end-to-end pipeline
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files, model_name]
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                  description: source files (.sas .r .R .py .ipynb .txt or .zip). Max size MRF_MAX_UPLOAD_MB.
+                model_name: { type: string }
+                owner: { type: string }
+                description: { type: string }
+                dataset_ids:
+                  type: array
+                  items: { type: string }
+                  description: datasets registered via POST /datasets
+                options:
+                  type: string
+                  description: JSON-encoded PipelineOptions
+          application/json:
+            schema: { $ref: "#/components/schemas/PipelineCreate" }
+      responses:
+        "202":
+          description: accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          pipeline_id: { type: string }
+                          model_id: { type: string }
+                          job_id: { type: string }
+                          poll: { type: string }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [pipelines]
+      operationId: listPipelines
+      x-owner: A1
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/PipelineState" } }
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/pipelines/{pipeline_id}:
+    get:
+      tags: [pipelines]
+      operationId: getPipeline
+      x-owner: A1
+      summary: Pipeline state, current step, attempts per step, transition history
+      parameters: [{ $ref: "#/components/parameters/PipelineId" }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Pipeline" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/models:
+    get:
+      tags: [models]
+      operationId: listModels
+      x-owner: A1
+      summary: Model inventory with identification results
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - { name: language, in: query, schema: { type: string } }
+        - { name: purpose, in: query, schema: { type: string } }
+        - { name: needs_review, in: query, schema: { type: boolean } }
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/models/{model_id}:
+    get:
+      tags: [models]
+      operationId: getModel
+      x-owner: A1
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/ModelRecord" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/reviews:
+    get:
+      tags: [reviews]
+      operationId: listReviews
+      x-owner: A1
+      summary: Human queue - H1, H2 and items escalated after retries / low confidence / rejection
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, edited] } }
+        - { name: gate, in: query, schema: { $ref: "#/components/schemas/Gate" } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/reviews/{review_id}:
+    get:
+      tags: [reviews]
+      operationId: getReview
+      x-owner: A1
+      parameters: [{ $ref: "#/components/parameters/ReviewId" }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Review" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/reviews/{review_id}/decision:
+    post:
+      tags: [reviews]
+      operationId: decideReview
+      x-owner: A1
+      summary: Approve / reject / edit; resumes the pipeline asynchronously
+      parameters:
+        - $ref: "#/components/parameters/ReviewId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - { name: X-Operator, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewDecision" }
+      responses:
+        "200":
+          description: decision recorded; data contains the review and the resume job_id
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          review: { $ref: "#/components/schemas/Review" }
+                          job_id: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /api/v1/jobs/{job_id}:
+    get:
+      tags: [jobs]
+      operationId: getJob
+      x-owner: A1
+      parameters: [{ name: job_id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Job" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  # ------------------------------------------------------------------ A3
+  /api/v1/models/{model_id}/documents:
+    post:
+      tags: [documents]
+      operationId: createDocument
+      x-owner: A3
+      summary: Regenerate documentation (draft + rate loop) outside the pipeline
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                feedback: { type: array, items: { type: string } }
+                rate: { type: boolean, default: true }
+      responses:
+        "202": { $ref: "#/components/responses/Accepted" }
+        "404": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      x-owner: A3
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/models/{model_id}/documents/{doc_id}:
+    get:
+      tags: [documents]
+      operationId: getDocument
+      x-owner: A3
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: doc_id, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [json, markdown, html], default: json } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Document" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/models/{model_id}/documents/{doc_id}/ratings:
+    get:
+      tags: [documents]
+      operationId: listRatings
+      x-owner: A3
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: doc_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: all rating attempts, oldest first
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items: { type: array, items: { $ref: "#/components/schemas/Rating" } }
+
+  # ------------------------------------------------------------------ A2
+  /api/v1/models/{model_id}/rebuilds:
+    post:
+      tags: [rebuilds]
+      operationId: createRebuild
+      x-owner: A2
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fixture_id: { type: string }
+                max_attempts: { type: integer, minimum: 1, maximum: 5, default: 5 }
+      responses:
+        "202": { $ref: "#/components/responses/Accepted" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/models/{model_id}/rebuilds/{rebuild_id}:
+    get:
+      tags: [rebuilds]
+      operationId: getRebuild
+      x-owner: A2
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: rebuild_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Rebuild" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/datasets:
+    post:
+      tags: [datasets]
+      operationId: registerDataset
+      x-owner: A2
+      summary: Register a dataset reference (any format; file stays in Blob/local storage)
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DatasetCreate" }
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Dataset" } }
+        "422": { $ref: "#/components/responses/Error" }
+
+  /api/v1/datasets/{dataset_id}:
+    get:
+      tags: [datasets]
+      operationId: getDataset
+      x-owner: A2
+      parameters: [{ $ref: "#/components/parameters/DatasetId" }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Dataset" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/datasets/{dataset_id}/quality:
+    get:
+      tags: [datasets]
+      operationId: getDatasetQuality
+      x-owner: A4
+      parameters: [{ $ref: "#/components/parameters/DatasetId" }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/QualityReport" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/v1/models/{model_id}/runs:
+    post:
+      tags: [runs]
+      operationId: createRun
+      x-owner: A2
+      summary: Run the rebuilt model on a dataset (usability run or daily batch). Refused with MRF-3101 if quality fails.
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dataset_id]
+              properties:
+                dataset_id: { type: string }
+                kind: { type: string, enum: [usability, batch], default: usability }
+                reference_dataset_id: { type: string, description: baseline for PSI }
+      responses:
+        "202": { $ref: "#/components/responses/Accepted" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
+  /api/v1/models/{model_id}/runs/{run_id}:
+    get:
+      tags: [runs]
+      operationId: getRun
+      x-owner: A2
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: run_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Run" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  # ------------------------------------------------------------------ A3 / A4
+  /api/v1/models/{model_id}/reports:
+    get:
+      tags: [reports]
+      operationId: listReports
+      x-owner: A3/A4
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: type, in: query, schema: { type: string, enum: [analysis, validation, monitoring, parity_certificate] } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/models/{model_id}/reports/{report_id}:
+    get:
+      tags: [reports]
+      operationId: getReport
+      x-owner: A3/A4
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: report_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Report" } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  # ------------------------------------------------------------------ A4
+  /api/v1/monitoring/models/{model_id}/metrics:
+    get:
+      tags: [monitoring]
+      operationId: getMonitoringMetrics
+      x-owner: A4
+      parameters:
+        - $ref: "#/components/parameters/ModelId"
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: per-batch metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          items: { type: array, items: { $ref: "#/components/schemas/MonitoringMetric" } }
+
+  /api/v1/monitoring/alerts:
+    get:
+      tags: [monitoring]
+      operationId: listAlerts
+      x-owner: A4
+      parameters:
+        - { name: model_id, in: query, schema: { type: string } }
+        - { name: severity, in: query, schema: { type: string, enum: [amber, red] } }
+        - { name: acknowledged, in: query, schema: { type: boolean } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
+
+  /api/v1/monitoring/schedules/{model_id}:
+    put:
+      tags: [monitoring]
+      operationId: putSchedule
+      x-owner: A4
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Schedule" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/Schedule" } }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /healthz:
+    get:
+      tags: [health]
+      operationId: healthz
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+  /readyz:
+    get:
+      tags: [health]
+      operationId: readyz
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "503": { $ref: "#/components/responses/Error" }
+
+components:
+  securitySchemes:
+    ApiKey: { type: apiKey, in: header, name: X-API-Key }
+
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: false, schema: { type: string, maxLength: 128 } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    PipelineId: { name: pipeline_id, in: path, required: true, schema: { type: string } }
+    ModelId: { name: model_id, in: path, required: true, schema: { type: string } }
+    DatasetId: { name: dataset_id, in: path, required: true, schema: { type: string } }
+    ReviewId: { name: review_id, in: path, required: true, schema: { type: string } }
+
+  responses:
+    Ok:
+      description: success envelope
+      content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } }
+    PagedOk:
+      description: success envelope with data.items + data.pagination
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Envelope"
+              - properties:
+                  data:
+                    type: object
+                    properties:
+                      items: { type: array, items: {} }
+                      pagination: { $ref: "#/components/schemas/Pagination" }
+    Accepted:
+      description: job accepted (MRF-0202)
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Envelope"
+              - properties:
+                  data:
+                    type: object
+                    required: [job_id, poll]
+                    properties:
+                      job_id: { type: string }
+                      poll: { type: string }
+    Error:
+      description: error envelope (see MRFCode)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } }
+
+  schemas:
+    # ---------------------------------------------------------------- envelope
+    Envelope:
+      type: object
+      required: [request_id, status, code, message, errors, warnings]
+      properties:
+        request_id: { type: string, format: uuid }
+        status: { type: string, enum: [success, accepted, error] }
+        code: { $ref: "#/components/schemas/MRFCode" }
+        message: { type: string }
+        data: {}
+        errors: { type: array, items: { $ref: "#/components/schemas/ErrorItem" } }
+        warnings: { type: array, items: { type: string } }
+    ErrorItem:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        field: { type: [string, "null"] }
+        detail: { type: object }
+    MRFCode:
+      type: string
+      enum: [MRF-0000, MRF-0202, MRF-1001, MRF-1002, MRF-1003, MRF-1004, MRF-1005, MRF-1006, MRF-1404,
+             MRF-2001, MRF-2002, MRF-2101, MRF-3001, MRF-3002, MRF-3003, MRF-3101, MRF-3201,
+             MRF-4001, MRF-4002, MRF-4003, MRF-5000]
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+
+    # ---------------------------------------------------------------- common
+    ArtifactRef:
+      type: object
+      required: [uri, filename]
+      properties:
+        uri: { type: string }
+        filename: { type: string }
+        media_type: { type: string }
+        sha256: { type: [string, "null"] }
+        size_bytes: { type: [integer, "null"] }
+    Evidence:
+      type: object
+      required: [source, ref]
+      properties:
+        source: { type: string, enum: [code, data, kb, tool, human] }
+        ref: { type: string, examples: ["m001_scorecard.sas:12-20", "kb:ss1-23#p4.2"] }
+        quote: { type: [string, "null"] }
+    Usage:
+      type: object
+      properties:
+        prompt_tokens: { type: integer }
+        completion_tokens: { type: integer }
+        cost_eur: { type: number }
+        latency_ms: { type: integer }
+        llm_calls: { type: integer }
+        backoff_retries: { type: integer }
+
+    # ---------------------------------------------------------------- pipeline
+    PipelineState:
+      type: string
+      enum: [received, classified, doc_drafting, doc_rating, awaiting_doc_approval, rebuilding, parity_passed,
+             usability_run, awaiting_signoff, deployed, monitoring, manual_review, failed]
+    PipelineOptions:
+      type: object
+      properties:
+        rebuild: { type: boolean, default: true, description: false = inventory + documentation only }
+        auto_approve: { type: boolean, default: false, description: local demo only; ignored when MRF_ENV != local }
+        language_hint: { type: string, enum: [sas, r, python] }
+    PipelineCreate:
+      type: object
+      required: [model_name, source_files]
+      properties:
+        model_name: { type: string }
+        owner: { type: string }
+        description: { type: string }
+        source_files: { type: array, items: { $ref: "#/components/schemas/ArtifactRef" } }
+        dataset_ids: { type: array, items: { type: string } }
+        options: { $ref: "#/components/schemas/PipelineOptions" }
+    StateTransition:
+      type: object
+      properties:
+        from_state: { anyOf: [{ $ref: "#/components/schemas/PipelineState" }, { type: "null" }] }
+        to_state: { $ref: "#/components/schemas/PipelineState" }
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        note: { type: [string, "null"] }
+        code: { type: [string, "null"] }
+    Pipeline:
+      type: object
+      required: [pipeline_id, model_id, state]
+      properties:
+        pipeline_id: { type: string }
+        model_id: { type: string }
+        state: { $ref: "#/components/schemas/PipelineState" }
+        current_step: { type: [string, "null"] }
+        attempts: { type: object, additionalProperties: { type: integer }, examples: [{ doc: 2, parity: 1 }] }
+        dataset_ids: { type: array, items: { type: string } }
+        history: { type: array, items: { $ref: "#/components/schemas/StateTransition" } }
+        usage: { $ref: "#/components/schemas/Usage" }
+        last_error: { type: [object, "null"] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Job:
+      type: object
+      required: [job_id, kind, status]
+      properties:
+        job_id: { type: string }
+        kind: { type: string, enum: [pipeline, pipeline_resume, document, rebuild, run, report, monitoring] }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        resource: { type: object, additionalProperties: { type: string } }
+        progress: { type: number, minimum: 0, maximum: 1 }
+        result: { type: [object, "null"] }
+        error: { type: [object, "null"] }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+
+    # ---------------------------------------------------------------- inventory
+    ClassificationResult:
+      type: object
+      required: [language, algorithm, purpose, confidence]
+      properties:
+        language: { type: string, enum: [sas, r, python, other, unknown] }
+        algorithm: { type: string }
+        purpose: { type: string }
+        target: { type: [string, "null"] }
+        features: { type: array, items: { type: string } }
+        procedures: { type: array, items: { type: string } }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        needs_review: { type: boolean }
+        evidence: { type: array, items: { $ref: "#/components/schemas/Evidence" } }
+        metadata: { type: object }
+    ModelRecord:
+      type: object
+      required: [model_id, name]
+      properties:
+        model_id: { type: string }
+        name: { type: string }
+        owner: { type: [string, "null"] }
+        description: { type: [string, "null"] }
+        source_files: { type: array, items: { $ref: "#/components/schemas/ArtifactRef" } }
+        classification: { anyOf: [{ $ref: "#/components/schemas/ClassificationResult" }, { type: "null" }] }
+        pipeline_id: { type: [string, "null"] }
+        lifecycle: { type: string, enum: [registered, documented, rebuilt, validated, production, retired] }
+        tags: { type: object, additionalProperties: { type: string } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    # ---------------------------------------------------------------- data (deliberately permissive)
+    DatasetFormat:
+      type: string
+      enum: [csv, tsv, parquet, feather, xlsx, xls, json, jsonl, sas7bdat, xpt, rds, rdata, sql, other]
+    ColumnInfo:
+      type: object
+      required: [name, dtype]
+      properties:
+        name: { type: string }
+        dtype: { type: string, description: free string - pandas, SAS or R type names are all accepted }
+        role: { type: string, enum: [feature, target, id, weight, date, segment, score, other] }
+        nullable: { type: boolean }
+        description: { type: [string, "null"] }
+    DatasetCreate:
+      type: object
+      required: [name, uri]
+      properties:
+        name: { type: string }
+        uri: { type: string, description: blob url / file path / table reference; format inferred from suffix if omitted }
+        format: { $ref: "#/components/schemas/DatasetFormat" }
+        role: { type: string, enum: [development, out_of_time, validation, monitoring_batch, reference, other] }
+        model_id: { type: string }
+        schema_name: { type: string }
+        columns: { type: array, items: { $ref: "#/components/schemas/ColumnInfo" } }
+        read_options: { type: object, description: "reader kwargs, e.g. {sep: ';', encoding: latin-1, sheet_name: 0}" }
+        metadata: { type: object }
+    Dataset:
+      allOf:
+        - $ref: "#/components/schemas/DatasetCreate"
+        - type: object
+          required: [dataset_id]
+          properties:
+            dataset_id: { type: string }
+            row_count: { type: [integer, "null"] }
+            created_at: { type: string, format: date-time }
+    QualityCheck:
+      type: object
+      properties:
+        name: { type: string }
+        passed: { type: boolean }
+        severity: { type: string, enum: [info, amber, red] }
+        value: {}
+        threshold: {}
+        detail: { type: object }
+    QualityReport:
+      type: object
+      properties:
+        dataset_id: { type: string }
+        passed: { type: boolean }
+        checks: { type: array, items: { $ref: "#/components/schemas/QualityCheck" } }
+        created_at: { type: string, format: date-time }
+
+    # ---------------------------------------------------------------- docs & rating
+    Document:
+      type: object
+      required: [doc_id, model_id]
+      properties:
+        doc_id: { type: string }
+        model_id: { type: string }
+        attempt: { type: integer }
+        content_md: { type: string }
+        sections: { type: object, additionalProperties: { type: string } }
+        evidence: { type: array, items: { $ref: "#/components/schemas/Evidence" } }
+        status: { type: string, enum: [draft, rated, approved, rejected] }
+        usage: { $ref: "#/components/schemas/Usage" }
+        created_at: { type: string, format: date-time }
+    Rating:
+      type: object
+      required: [rating_id, doc_id, attempt, total, passed]
+      properties:
+        rating_id: { type: string }
+        doc_id: { type: string }
+        attempt: { type: integer }
+        rule_score: { type: number, minimum: 0, maximum: 60 }
+        llm_score: { type: number, minimum: 0, maximum: 40 }
+        total: { type: number, minimum: 0, maximum: 100 }
+        passed: { type: boolean }
+        veto_flags: { type: array, items: { type: string } }
+        comments: { type: array, items: { type: string } }
+        breakdown: { type: object, additionalProperties: { type: number } }
+        usage: { $ref: "#/components/schemas/Usage" }
+        created_at: { type: string, format: date-time }
+
+    # ---------------------------------------------------------------- rebuild & runs
+    ParityResult:
+      type: object
+      required: [passed]
+      properties:
+        passed: { type: boolean }
+        n_records: { type: integer }
+        n_mismatches: { type: integer }
+        max_abs_diff: { type: [number, "null"] }
+        tolerance: { type: [number, "null"] }
+        mismatch_examples: { type: array, items: { type: object } }
+        detail: { type: object }
+    Rebuild:
+      type: object
+      required: [rebuild_id, model_id]
+      properties:
+        rebuild_id: { type: string }
+        model_id: { type: string }
+        attempt: { type: integer }
+        target_language: { type: string, enum: [python] }
+        code: { anyOf: [{ $ref: "#/components/schemas/ArtifactRef" }, { type: "null" }] }
+        parity: { anyOf: [{ $ref: "#/components/schemas/ParityResult" }, { type: "null" }] }
+        certificate: { anyOf: [{ $ref: "#/components/schemas/ArtifactRef" }, { type: "null" }] }
+        feedback: { type: array, items: { type: string } }
+        status: { type: string, enum: [generating, testing, passed, failed] }
+        usage: { $ref: "#/components/schemas/Usage" }
+        created_at: { type: string, format: date-time }
+    Run:
+      type: object
+      required: [run_id, model_id, dataset_id]
+      properties:
+        run_id: { type: string }
+        model_id: { type: string }
+        dataset_id: { type: string }
+        kind: { type: string, enum: [usability, batch] }
+        status: { type: string, enum: [queued, running, succeeded, failed] }
+        metrics: { type: object }
+        outputs: { type: array, items: { $ref: "#/components/schemas/ArtifactRef" } }
+        mlflow_run_id: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+    Report:
+      type: object
+      required: [report_id, model_id, type]
+      properties:
+        report_id: { type: string }
+        model_id: { type: string }
+        type: { type: string, enum: [analysis, validation, monitoring, parity_certificate] }
+        artifact: { anyOf: [{ $ref: "#/components/schemas/ArtifactRef" }, { type: "null" }] }
+        rag_status: { type: [string, "null"], enum: [green, amber, red, null] }
+        summary: { type: object }
+        created_at: { type: string, format: date-time }
+
+    # ---------------------------------------------------------------- review
+    Gate: { type: string, enum: [H1, H2, manual] }
+    Review:
+      type: object
+      required: [review_id, pipeline_id, model_id, gate, status]
+      properties:
+        review_id: { type: string }
+        pipeline_id: { type: string }
+        model_id: { type: string }
+        gate: { $ref: "#/components/schemas/Gate" }
+        reason: { type: string }
+        reason_code: { type: [string, "null"] }
+        status: { type: string, enum: [pending, approved, rejected, edited] }
+        payload: { type: object }
+        decided_by: { type: [string, "null"] }
+        decided_at: { type: [string, "null"], format: date-time }
+        comment: { type: [string, "null"] }
+        edits: { type: object }
+        created_at: { type: string, format: date-time }
+    ReviewDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject, edit] }
+        comment: { type: string }
+        edits: { type: object, description: "edit: field patches, e.g. {sections: {methodology: '...'}} or {classification: {...}}" }
+        target_state: { $ref: "#/components/schemas/PipelineState" }
+
+    # ---------------------------------------------------------------- monitoring
+    MonitoringMetric:
+      type: object
+      properties:
+        model_id: { type: string }
+        batch_id: { type: string }
+        at: { type: string, format: date-time }
+        row_count: { type: [integer, "null"] }
+        missing_rate: { type: object, additionalProperties: { type: number } }
+        psi: { type: object, additionalProperties: { type: number }, description: "feature -> PSI; '__score__' = score PSI" }
+        gini: { type: [number, "null"] }
+        status: { type: string, enum: [green, amber, red] }
+    Alert:
+      type: object
+      properties:
+        alert_id: { type: string }
+        model_id: { type: string }
+        severity: { type: string, enum: [amber, red] }
+        kind: { type: string, enum: [drift, data_quality, performance, system, queue_sla] }
+        message: { type: string }
+        detail: { type: object }
+        acknowledged: { type: boolean }
+        created_at: { type: string, format: date-time }
+    Schedule:
+      type: object
+      required: [cron]
+      properties:
+        model_id: { type: string }
+        cron: { type: string, examples: ["0 6 * * 1", "0 * * * *"] }
+        enabled: { type: boolean, default: true }
+        report_types: { type: array, items: { type: string, enum: [monitoring, validation] } }

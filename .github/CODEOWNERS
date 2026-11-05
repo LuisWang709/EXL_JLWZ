@@ -1,0 +1,40 @@
+# Replace the placeholders with GitHub usernames (A4 owns this file).
+# Review pairs from the plan: A1<->A2, A3<->A4; A1 reviews every API/contract change.
+
+*                               @A1_GITHUB_USER
+
+# contracts - always A1
+/openapi.yaml                   @A1_GITHUB_USER
+/src/mrf/contracts/             @A1_GITHUB_USER
+/src/mrf/core/                  @A1_GITHUB_USER
+/config/pipeline.yaml           @A1_GITHUB_USER
+
+# A1
+/src/mrf/api/                   @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/orchestrator/          @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/llm/                   @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/storage/               @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/mcp_server/            @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/agents/classify/       @A1_GITHUB_USER @A2_GITHUB_USER
+
+# A2
+/src/mrf/data/                  @A2_GITHUB_USER @A1_GITHUB_USER
+/src/mrf/agents/rebuild/        @A2_GITHUB_USER @A1_GITHUB_USER
+/models/                        @A2_GITHUB_USER @A1_GITHUB_USER
+/tests/fixtures/                @A2_GITHUB_USER @A1_GITHUB_USER
+
+# A3
+/src/mrf/rag/                   @A3_GITHUB_USER @A4_GITHUB_USER
+/src/mrf/agents/doc/            @A3_GITHUB_USER @A4_GITHUB_USER
+/src/mrf/rating/                @A3_GITHUB_USER @A4_GITHUB_USER
+/src/mrf/validation/            @A3_GITHUB_USER @A4_GITHUB_USER
+/src/mrf/reporting/             @A3_GITHUB_USER @A4_GITHUB_USER
+/templates/                     @A3_GITHUB_USER @A4_GITHUB_USER
+/kb/                            @A3_GITHUB_USER @A4_GITHUB_USER
+
+# A4
+/.github/                       @A4_GITHUB_USER @A3_GITHUB_USER
+/infra/                         @A4_GITHUB_USER @A3_GITHUB_USER
+/docker/                        @A4_GITHUB_USER @A3_GITHUB_USER
+/src/mrf/monitoring/            @A4_GITHUB_USER @A3_GITHUB_USER
+/src/mrf/ui/                    @A4_GITHUB_USER @A3_GITHUB_USER

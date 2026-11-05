@@ -1,0 +1,15 @@
+{# Owner: A3. Draft skeleton - section ids must match rubric.yaml required_sections. #}
+# Model Documentation – {{ model.name }} ({{ model.model_id }})
+
+## 1. Purpose and use {# purpose_and_use #}
+## 2. Data {# data #}
+## 3. Methodology {# methodology #}
+## 4. Assumptions and limitations {# assumptions_and_limitations #}
+## 5. Performance {# performance #}
+## 6. Implementation {# implementation #}
+## 7. Monitoring {# monitoring #}
+## 8. Governance {# governance #}
+
+## Evidence
+{% for e in evidence %}- [{{ loop.index }}] {{ e.source }}: {{ e.ref }}
+{% endfor %}
