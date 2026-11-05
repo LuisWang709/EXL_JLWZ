@@ -1,40 +1,40 @@
-# Replace the placeholders with GitHub usernames (A4 owns this file).
+# A1 AlbertChow1997, A2 Hugo-128, A3 jewel-rgb, A4 LuisWang709 (A4 owns this file).
 # Review pairs from the plan: A1<->A2, A3<->A4; A1 reviews every API/contract change.
 
-*                               @A1_GITHUB_USER
+*                               @AlbertChow1997
 
 # contracts - always A1
-/openapi.yaml                   @A1_GITHUB_USER
-/src/mrf/contracts/             @A1_GITHUB_USER
-/src/mrf/core/                  @A1_GITHUB_USER
-/config/pipeline.yaml           @A1_GITHUB_USER
+/openapi.yaml                   @AlbertChow1997
+/src/mrf/contracts/             @AlbertChow1997
+/src/mrf/core/                  @AlbertChow1997
+/config/pipeline.yaml           @AlbertChow1997
 
 # A1
-/src/mrf/api/                   @A1_GITHUB_USER @A2_GITHUB_USER
-/src/mrf/orchestrator/          @A1_GITHUB_USER @A2_GITHUB_USER
-/src/mrf/llm/                   @A1_GITHUB_USER @A2_GITHUB_USER
-/src/mrf/storage/               @A1_GITHUB_USER @A2_GITHUB_USER
-/src/mrf/mcp_server/            @A1_GITHUB_USER @A2_GITHUB_USER
-/src/mrf/agents/classify/       @A1_GITHUB_USER @A2_GITHUB_USER
+/src/mrf/api/                   @AlbertChow1997 @Hugo-128
+/src/mrf/orchestrator/          @AlbertChow1997 @Hugo-128
+/src/mrf/llm/                   @AlbertChow1997 @Hugo-128
+/src/mrf/storage/               @AlbertChow1997 @Hugo-128
+/src/mrf/mcp_server/            @AlbertChow1997 @Hugo-128
+/src/mrf/agents/classify/       @AlbertChow1997 @Hugo-128
 
 # A2
-/src/mrf/data/                  @A2_GITHUB_USER @A1_GITHUB_USER
-/src/mrf/agents/rebuild/        @A2_GITHUB_USER @A1_GITHUB_USER
-/models/                        @A2_GITHUB_USER @A1_GITHUB_USER
-/tests/fixtures/                @A2_GITHUB_USER @A1_GITHUB_USER
+/src/mrf/data/                  @Hugo-128 @AlbertChow1997
+/src/mrf/agents/rebuild/        @Hugo-128 @AlbertChow1997
+/models/                        @Hugo-128 @AlbertChow1997
+/tests/fixtures/                @Hugo-128 @AlbertChow1997
 
 # A3
-/src/mrf/rag/                   @A3_GITHUB_USER @A4_GITHUB_USER
-/src/mrf/agents/doc/            @A3_GITHUB_USER @A4_GITHUB_USER
-/src/mrf/rating/                @A3_GITHUB_USER @A4_GITHUB_USER
-/src/mrf/validation/            @A3_GITHUB_USER @A4_GITHUB_USER
-/src/mrf/reporting/             @A3_GITHUB_USER @A4_GITHUB_USER
-/templates/                     @A3_GITHUB_USER @A4_GITHUB_USER
-/kb/                            @A3_GITHUB_USER @A4_GITHUB_USER
+/src/mrf/rag/                   @jewel-rgb @LuisWang709
+/src/mrf/agents/doc/            @jewel-rgb @LuisWang709
+/src/mrf/rating/                @jewel-rgb @LuisWang709
+/src/mrf/validation/            @jewel-rgb @LuisWang709
+/src/mrf/reporting/             @jewel-rgb @LuisWang709
+/templates/                     @jewel-rgb @LuisWang709
+/kb/                            @jewel-rgb @LuisWang709
 
 # A4
-/.github/                       @A4_GITHUB_USER @A3_GITHUB_USER
-/infra/                         @A4_GITHUB_USER @A3_GITHUB_USER
-/docker/                        @A4_GITHUB_USER @A3_GITHUB_USER
-/src/mrf/monitoring/            @A4_GITHUB_USER @A3_GITHUB_USER
-/src/mrf/ui/                    @A4_GITHUB_USER @A3_GITHUB_USER
+/.github/                       @LuisWang709 @jewel-rgb
+/infra/                         @LuisWang709 @jewel-rgb
+/docker/                        @LuisWang709 @jewel-rgb
+/src/mrf/monitoring/            @LuisWang709 @jewel-rgb
+/src/mrf/ui/                    @LuisWang709 @jewel-rgb
