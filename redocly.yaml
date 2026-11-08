@@ -1,0 +1,4 @@
+# OpenAPI lint config for CI (owner: A4). "minimal" fails only on real structural errors;
+# style findings (missing summaries, tag descriptions) stay warnings so they never block a PR.
+extends:
+  - minimal
