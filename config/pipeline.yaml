@@ -44,4 +44,8 @@ monitoring:
   psi_red: 0.25
   gini_drop_red: 0.05
   manual_queue_sla_hours: 24
+  # per-batch data quality (A4). Value ranges / allowed codes come from the pandera schema, not from here.
+  min_rows: 30                   # fewer rows -> amber (0 rows -> red)
+  missing_rate_amber: 0.05       # share of missing values in any column
+  missing_rate_red: 0.20
   default_schedule_cron: "0 6 * * 1"   # every Monday 06:00 UTC; demo overrides to hourly
