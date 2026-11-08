@@ -537,6 +537,29 @@ paths:
                   - properties: { data: { $ref: "#/components/schemas/Schedule" } }
         "409": { $ref: "#/components/responses/Error" }
 
+  /api/v1/monitoring/runs:
+    post:
+      tags: [monitoring]
+      operationId: startMonitoringRun
+      x-owner: A4
+      summary: >-
+        Process monitoring batches as a job. With model_id + dataset_id: that one batch. Without a body: every
+        not-yet-processed monitoring_batch dataset of every enabled schedule (called by the Container Apps Job).
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model_id: { type: [string, "null"], description: "limit to one model" }
+                dataset_id: { type: [string, "null"], description: "one batch; requires model_id" }
+      responses:
+        "202": { $ref: "#/components/responses/Accepted" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
   /healthz:
     get:
       tags: [health]
