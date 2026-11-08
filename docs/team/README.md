@@ -6,7 +6,7 @@
 2. **Python 接口**：[src/mrf/contracts/agents.py](../../src/mrf/contracts/agents.py)，编排器调用各模块；领域模型见 [contracts/models.py](../../src/mrf/contracts/models.py)
 3. **MCP 工具**：[src/mrf/mcp_server/tools/](../../src/mrf/mcp_server/tools/)，智能体通过它取数
 
-个人任务书：[A1](A1.md) · [A2](A2.md) · [A3](A3.md) · [A4](A4.md)
+个人任务书：[A1](A1.md) · [A2](A2.md) · [A3](A3.md) · [A4](A4.md) · **[接入指南（怎么把你的模块接进流水线）](integration.md)**
 
 ## 谁实现、谁调用
 

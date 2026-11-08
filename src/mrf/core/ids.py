@@ -18,6 +18,8 @@ PREFIXES = {
     "report": "rpt",
     "review": "rev",
     "alert": "alr",
+    "audit": "aud",
+    "batch": "bat",
 }
 
 

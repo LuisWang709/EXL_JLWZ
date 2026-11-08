@@ -14,7 +14,7 @@ uv sync --extra data --extra rag         # 按需加装：数据/建模、RAG、
 cp .env.example .env                     # 默认 MRF_LLM_PROVIDER=mock，不需要任何密钥
 uv run pytest                            # 单元测试（模拟 LLM）
 uv run uvicorn mrf.api.app:app --reload  # http://localhost:8000/docs ，健康检查 /healthz
-uv run python -m mrf.run --model M001    # 本地跑一条流水线（A1，11/3 实现）
+uv run python -m mrf.run --model M001 --auto-approve   # 本地用 stub 跑完整流水线
 uv run pre-commit install                # 一次即可
 ```
 
@@ -59,7 +59,7 @@ data/                      本地数据（git 忽略）
 | A3 | 文档、验证与 RAI | RAG、说明书、评级、验证、报告 | [A3.md](docs/team/A3.md) |
 | A4 | DevOps、监控与展示 | CI/CD、Azure、监控、界面、视频/PPT | [A4.md](docs/team/A4.md) |
 
-协作规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+协作规则见 [CONTRIBUTING.md](CONTRIBUTING.md)；把自己的模块接入流水线见 [docs/team/integration.md](docs/team/integration.md)。
 
 ## AI 工具声明
 

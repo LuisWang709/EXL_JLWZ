@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     data_dir: Path = Path("./var")
 
-    storage_backend: Literal["sqlite", "cosmos"] = "sqlite"
+    storage_backend: Literal["memory", "sqlite", "cosmos"] = "sqlite"
     sqlite_path: Path = Path("./var/mrf.sqlite")
     checkpoint_path: Path = Path("./var/checkpoints.sqlite")
     cosmos_endpoint: str = ""

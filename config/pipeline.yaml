@@ -2,6 +2,17 @@
 # rating (A3) and monitoring (A4). Change only via PR reviewed by A1.
 version: 1
 
+llm:
+  # EUR per 1k tokens; used for Usage.cost_eur (process-improvement KPIs). Keyed by model/deployment name.
+  pricing_eur_per_1k:
+    default: { prompt: 0.00014, completion: 0.00055 }
+    gpt-4o-mini: { prompt: 0.00014, completion: 0.00055 }
+    gpt-4o: { prompt: 0.0023, completion: 0.0092 }
+  # role -> model override (falls back to MRF_LLM_MODEL; 'rater' also honours MRF_LLM_REVIEWER_MODEL)
+  role_models: {}
+  max_retry_after_s: 8
+  json_repair_attempts: 1
+
 classification:
   min_confidence: 0.7            # below -> MRF-2002, manual_review
 
