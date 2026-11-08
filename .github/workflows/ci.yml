@@ -1,4 +1,4 @@
-# Owner: A4 (initial version by A1 so the skeleton is green). Extend with bandit, gitleaks, docker build.
+# Owner: A4. Every PR and every push to main. Job names (test, security, build) are the required checks.
 name: ci
 
 on:
@@ -9,9 +9,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       MRF_LLM_PROVIDER: mock
     steps:
@@ -21,11 +26,54 @@ jobs:
           enable-cache: true
       - name: Set up Python
         run: uv python install 3.12
-      - name: Install
-        run: uv sync --python 3.12
+      - name: Install (all extras - monitoring/data modules need pandas, pandera)
+        run: uv sync --python 3.12 --all-extras --frozen
       - name: Lint
         run: uv run ruff check .
       - name: Type check
         run: uv run mypy
       - name: Test
-        run: uv run pytest -q
+        run: uv run pytest -q --junitxml=reports/junit.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: reports/
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read          # gitleaks reads the commits of the PR
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0           # gitleaks scans the full history
+      - uses: astral-sh/setup-uv@v3
+      # B608 (SQL built from strings) is skipped: ruff's S608 covers the same rule in the test job, and the
+      # dynamic table names in mrf.storage.sqlite are validated and reviewed line by line (# noqa: S608).
+      - name: Bandit (medium and high severity)
+        run: uvx bandit -c pyproject.toml -r src -ll --skip B608
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: OpenAPI lint
+        run: npx --yes @redocly/cli@latest lint openapi.yaml
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

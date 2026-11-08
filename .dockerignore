@@ -1,0 +1,27 @@
+# Keep data, secrets and local state out of images (owner: A4)
+.git
+.github
+.venv
+venv
+var/
+data/
+mlruns/
+mlartifacts/
+outputs/
+reports_out/
+kb/index/
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+tests/
+docs/
+.claude/
+.DS_Store

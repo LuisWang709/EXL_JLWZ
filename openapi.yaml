@@ -762,7 +762,7 @@ components:
       required: [name, dtype]
       properties:
         name: { type: string }
-        dtype: { type: string, description: free string - pandas, SAS or R type names are all accepted }
+        dtype: { type: string, description: "free string - pandas, SAS or R type names are all accepted" }
         role: { type: string, enum: [feature, target, id, weight, date, segment, score, other] }
         nullable: { type: boolean }
         description: { type: [string, "null"] }
