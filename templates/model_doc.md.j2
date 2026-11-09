@@ -1,15 +1,15 @@
-{# Owner: A3. Draft skeleton - section ids must match rubric.yaml required_sections. #}
+{#- Owner: A3. Rendered by mrf.agents.doc.agent.DocAgent. Section ids must match src/mrf/rating/rubric.yaml
+    (required_sections); the rater reads Document.sections, this template only builds content_md. -#}
 # Model Documentation – {{ model.name }} ({{ model.model_id }})
 
-## 1. Purpose and use {# purpose_and_use #}
-## 2. Data {# data #}
-## 3. Methodology {# methodology #}
-## 4. Assumptions and limitations {# assumptions_and_limitations #}
-## 5. Performance {# performance #}
-## 6. Implementation {# implementation #}
-## 7. Monitoring {# monitoring #}
-## 8. Governance {# governance #}
+Document `{{ doc_id }}` · attempt {{ attempt }} · generated {{ generated_at }} by the documentation agent.
+Every statement cites its evidence as [E#]; the evidence list is at the end. Numbers come from tool outputs only.
+{% for s in sections %}
+## {{ loop.index }}. {{ s.title }}
 
-## Evidence
-{% for e in evidence %}- [{{ loop.index }}] {{ e.source }}: {{ e.ref }}
+{{ s.body }}
 {% endfor %}
+## Evidence
+{% for e in evidence %}
+- [E{{ loop.index }}] {{ e.source }}: {{ e.ref }}{% if e.quote %} — "{{ e.quote | replace("\n", " ") | truncate(160) }}"{% endif %}
+{%- endfor %}
