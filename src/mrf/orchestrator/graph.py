@@ -20,6 +20,7 @@ from langgraph.errors import GraphBubbleUp
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
+from mrf import telemetry
 from mrf.config import get_policy
 from mrf.contracts.agents import StepContext
 from mrf.contracts.models import (
@@ -108,6 +109,41 @@ class RunOutcome:
 
 NodeFn = Callable[[GraphState], Awaitable[Command[Any]]]
 
+#: where to (re-)enter the graph for a stored pipeline state when no checkpoint exists
+STATE_NODES: dict[PipelineState, str | None] = {
+    S.RECEIVED: "classify",
+    S.CLASSIFIED: "doc_draft",
+    S.DOC_DRAFTING: "doc_draft",
+    S.DOC_RATING: "doc_draft",
+    S.AWAITING_DOC_APPROVAL: "gate_h1",
+    S.REBUILDING: "rebuild",
+    S.PARITY_PASSED: "usability_run",
+    S.USABILITY_RUN: "usability_run",
+    S.AWAITING_SIGNOFF: "gate_h2",
+    S.DEPLOYED: "register_monitoring",
+    S.MONITORING: None,
+    S.MANUAL_REVIEW: "escalate",
+    S.FAILED: None,
+}
+
+
+def node_for_state(p: Pipeline) -> str | None:
+    return STATE_NODES[p.state]
+
+
+def recorded_decision(review: Review) -> dict[str, Any] | None:
+    """The decision a human already made on this review (stored by decide_review), if any.
+
+    Lets a gate continue after a lost checkpoint, and makes the review - not the transient resume
+    value - the single source of truth for what was decided."""
+    if review.status == "pending":
+        return None
+    stored = review.payload.get("decision")
+    if isinstance(stored, dict) and stored.get("decision"):
+        return stored
+    verb = {"approved": "approve", "rejected": "reject", "edited": "edit"}[review.status]
+    return {"decision": verb, "comment": review.comment, "edits": review.edits, "operator": review.decided_by}
+
 
 class Orchestrator:
     def __init__(
@@ -126,7 +162,16 @@ class Orchestrator:
 
     # ================================================================== public API
     async def start(self, pipeline_id: str) -> RunOutcome:
+        """Run a new pipeline - or, for a job recovered after a restart, continue where it stopped:
+        from the checkpoint if it survived, otherwise from the node matching the stored pipeline state."""
         p = await self._pipeline(pipeline_id)
+        if await self._has_pending(pipeline_id):
+            return await self._invoke(pipeline_id, None)
+        if p.state is not S.RECEIVED:
+            node = node_for_state(p)
+            if node is None:  # terminal - nothing to do
+                return RunOutcome(pipeline_id, p.state, False)
+            return await self.reenter(pipeline_id, node)
         init: GraphState = {
             "pipeline_id": pipeline_id,
             "model_id": p.model_id,
@@ -138,25 +183,51 @@ class Orchestrator:
         return await self._invoke(pipeline_id, init)
 
     async def resume(self, pipeline_id: str, decision: dict[str, Any]) -> RunOutcome:
-        """Continue after a human decision (H1 / H2 / manual)."""
-        return await self._invoke(pipeline_id, Command(resume=decision))
+        """Continue after a human decision (H1 / H2 / manual).
+
+        If the checkpoint is gone (container restarted with local SQLite), the gate node is re-entered;
+        it finds the decision already recorded on the Review and continues without waiting again."""
+        if await self._has_pending(pipeline_id):
+            return await self._invoke(pipeline_id, Command(resume=decision))
+        p = await self._pipeline(pipeline_id)
+        node = node_for_state(p)
+        if node not in {"gate_h1", "gate_h2", "escalate"}:
+            raise MRFError(MRFCode.INVALID_STATE, f"pipeline is {p.state.value}; nothing is waiting for a decision")
+        log.warning("checkpoint for %s missing; re-entering %s from the stored state", pipeline_id, node)
+        return await self.reenter(pipeline_id, node)
 
     async def reenter(self, pipeline_id: str, node: str, feedback: list[str] | None = None) -> RunOutcome:
-        """Start a new run of the thread at ``node`` (drift re-validation, lost checkpoint)."""
+        """Start a new run of the thread at ``node`` (drift re-validation, lost checkpoint).
+
+        State comes from the checkpoint when present, else from the Pipeline document (attempts, artifacts,
+        last_error), which every node keeps up to date."""
         if node not in NODES:
             raise MRFError(MRFCode.INPUT_BODY, f"unknown node {node!r}")
         snap = await self.graph.aget_state(self._cfg(pipeline_id))
         prev: dict[str, Any] = dict(snap.values) if snap and snap.values else {}
         p = await self._pipeline(pipeline_id)
+        last = p.last_error or {}
         init: GraphState = {
             "pipeline_id": pipeline_id,
             "model_id": p.model_id,
             "attempts": dict(prev.get("attempts") or p.attempts),
-            "feedback": feedback or [],
-            "artifacts": dict(prev.get("artifacts") or {}),
+            "feedback": feedback if feedback is not None else list(prev.get("feedback") or []),
+            "artifacts": dict(prev.get("artifacts") or p.artifacts),
             "resume_target": node,
         }
+        if node == "escalate":
+            init.update(
+                {
+                    "failed_step": prev.get("failed_step") or last.get("step"),
+                    "reason_code": prev.get("reason_code") or last.get("code"),
+                    "reason": prev.get("reason") or last.get("message"),
+                }
+            )
         return await self._invoke(pipeline_id, init)
+
+    async def _has_pending(self, pipeline_id: str) -> bool:
+        snap = await self.graph.aget_state(self._cfg(pipeline_id))
+        return bool(snap and snap.next)
 
     # ================================================================== graph
     def _build(self) -> StateGraph[GraphState]:
@@ -184,9 +255,11 @@ class Orchestrator:
 
         async def node(state: GraphState) -> Command[Any]:
             pid = state["pipeline_id"]
-            with track_usage() as usage:
+            with track_usage() as usage, telemetry.span(f"mrf.node.{name}", pipeline_id=pid, node=name):
                 try:
-                    return await fn(state)
+                    cmd = await fn(state)
+                    await self._mirror(pid, cmd)
+                    return cmd
                 except GraphBubbleUp:  # interrupt() - not an error
                     raise
                 except MRFError as exc:
@@ -307,7 +380,7 @@ class Orchestrator:
             reason="Documentation passed rating; approval required (H1)",
             payload={"doc_id": arts.get("doc_id"), "rating_id": arts.get("rating_id")},
         )
-        decision = interrupt({"review_id": review.review_id, "gate": Gate.H1.value})
+        decision = recorded_decision(review) or interrupt({"review_id": review.review_id, "gate": Gate.H1.value})
         kind = decision.get("decision")
         if kind == "reject":
             return Command(
@@ -398,7 +471,7 @@ class Orchestrator:
             reason="Validation report ready; independent sign-off required (H2)",
             payload={k: arts.get(k) for k in ("rebuild_id", "run_ids", "analysis_report_id", "validation_report_id")},
         )
-        decision = interrupt({"review_id": review.review_id, "gate": Gate.H2.value})
+        decision = recorded_decision(review) or interrupt({"review_id": review.review_id, "gate": Gate.H2.value})
         if decision.get("decision") == "reject":
             return Command(
                 goto="rebuild",
@@ -441,7 +514,7 @@ class Orchestrator:
             reason_code=code,
             payload={"failed_step": step, "attempts": attempts, "artifacts": s.get("artifacts", {})},
         )
-        decision = interrupt({"review_id": review.review_id, "gate": Gate.MANUAL.value})
+        decision = recorded_decision(review) or interrupt({"review_id": review.review_id, "gate": Gate.MANUAL.value})
         if decision.get("decision") == "reject":
             await self._transition(pid, S.FAILED, step=step, actor="human", note=decision.get("comment"))
             return Command(goto=END)
@@ -507,6 +580,18 @@ class Orchestrator:
             },
         )
 
+    async def _mirror(self, pipeline_id: str, cmd: Command[Any]) -> None:
+        """Copy attempts / artifacts from the node's update into the Pipeline document (checkpoint-independent)."""
+        update = cmd.update if isinstance(cmd.update, dict) else None
+        if not update or not ({"attempts", "artifacts"} & set(update)):
+            return
+        p = await self._pipeline(pipeline_id)
+        if "attempts" in update:
+            p.attempts = {**p.attempts, **dict(update["attempts"])}
+        if "artifacts" in update:
+            p.artifacts = {**p.artifacts, **dict(update["artifacts"])}
+        await self.repo.put(Collections.PIPELINES, pipeline_id, p)
+
     async def _pipeline(self, pipeline_id: str) -> Pipeline:
         return await self.repo.get(Collections.PIPELINES, pipeline_id, Pipeline)
 
@@ -571,6 +656,7 @@ class Orchestrator:
             "created_at": utcnow().isoformat(),
         }
         await self.repo.put(Collections.AUDIT, new_id("audit"), entry)
+        telemetry.event("mrf.audit", pipeline_id=pipeline_id, step=step, message=message, code=code, actor=actor)
 
     async def _open_review(
         self,

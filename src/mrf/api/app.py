@@ -30,6 +30,9 @@ def _request_id(request: Request) -> str:
 
 
 def create_app(*, mount_mcp: bool = True, start_workers: bool = True) -> FastAPI:
+    from mrf import telemetry
+
+    telemetry.configure()  # App Insights when APPLICATIONINSIGHTS_CONNECTION_STRING is set
     from mrf.mcp_server.server import build_server
 
     mcp = build_server() if mount_mcp else None  # fresh per app: a session manager runs only once

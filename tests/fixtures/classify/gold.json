@@ -1,0 +1,31 @@
+{
+  "_note": "A1 test inputs for the classifier. Replace/extend with A2's tests/fixtures/m00x/inventory_gold.json when available.",
+  "m001_pd_scorecard.sas": {
+    "language": "sas",
+    "algorithm": "logistic_regression",
+    "purpose": "pd",
+    "target": "default_flag",
+    "features": ["checking_status", "credit_history", "age_band", "duration_months", "log_amount"]
+  },
+  "m002_card_default.R": {
+    "language": "r",
+    "algorithm": "logistic_regression",
+    "purpose": "pd",
+    "target": "default_next_month",
+    "features": ["limit_bal", "util", "pay_0", "pay_2", "age", "education"]
+  },
+  "m003_behaviour_xgb.py": {
+    "language": "python",
+    "algorithm": "gradient_boosting",
+    "purpose": "behavioural_score",
+    "target": "serious_dlq_2yrs",
+    "features": ["revolving_utilization", "age", "past_due_30_59", "debt_ratio", "monthly_income", "open_credit_lines", "past_due_90"]
+  },
+  "m004_pricing_reg.sas": {
+    "language": "sas",
+    "algorithm": "linear_regression",
+    "purpose": "pricing",
+    "target": "price_margin",
+    "features": ["term_years", "loan_amount", "risk_grade_num", "ltv"]
+  }
+}

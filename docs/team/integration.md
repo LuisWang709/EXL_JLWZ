@@ -78,6 +78,14 @@ mock.fail_next("rater", "rate_limit", times=2)               # 注入故障
 mock.calls                                                   # 断言实际发给 LLM 的内容
 ```
 
+给你的 role 配一个离线默认响应，CI 和没有 key 的演示就能直接跑你的真实智能体（参考 `mrf/agents/classify/agent.py` 末尾）：
+
+```python
+from mrf.llm.mock import MockLLM
+
+MockLLM.register_default("rater", lambda messages, schema: {...})   # 模块被 import 时注册；测试里 register() 的优先级更高
+```
+
 ## 3. 调用 / 实现 MCP 工具
 
 ```python

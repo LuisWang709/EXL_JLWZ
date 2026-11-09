@@ -15,7 +15,7 @@ import json
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -45,6 +45,14 @@ def _to_text(value: Any) -> tuple[str, list[dict[str, Any]]]:
 
 class MockLLM(BaseLLM):
     provider = "mock"
+
+    #: offline answers an agent module ships for its own role (used when no test responder is registered).
+    #: Lets CI and the no-key demo run real agents: ``MockLLM.register_default("classifier", fn)``.
+    _default_responders: ClassVar[dict[str, Responder]] = {}
+
+    @classmethod
+    def register_default(cls, role: str, responder: Responder) -> None:
+        cls._default_responders[role] = responder
 
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("default_model", "mock-model")
@@ -99,7 +107,7 @@ class MockLLM(BaseLLM):
         )
 
     def _resolve(self, role: str, messages: list[ChatMessage], schema: type[BaseModel] | None) -> Any:
-        responder = self._responders.get(role)
+        responder = self._responders.get(role, self._default_responders.get(role))
         idx = self._counters[role]
         self._counters[role] += 1
         if responder is None:

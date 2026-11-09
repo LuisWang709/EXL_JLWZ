@@ -64,3 +64,23 @@ async def test_local_blobs_roundtrip_and_traversal(tmp_path: Path) -> None:
     with pytest.raises(MRFError):
         await blobs.put_bytes("../escape.txt", b"x")
     assert not await blobs.exists((tmp_path / "other.txt").as_uri())
+
+
+async def test_sqlite_journal_mode_for_network_share(tmp_path: Path) -> None:
+    repo = SqliteRepository(tmp_path / "share.sqlite", journal_mode="DELETE")
+    await repo.put("pipelines", "pl_1", Pipeline(pipeline_id="pl_1", model_id="m"))
+    db = await repo._db()
+    async with db.execute("PRAGMA journal_mode") as cur:
+        assert (await cur.fetchone())[0].upper() == "DELETE"
+    await repo.close()
+    with pytest.raises(ValueError):
+        SqliteRepository(tmp_path / "x.sqlite", journal_mode="MEMORY; DROP")
+
+
+def test_telemetry_is_noop_without_connection_string(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mrf import telemetry
+
+    monkeypatch.delenv("APPLICATIONINSIGHTS_CONNECTION_STRING", raising=False)
+    assert telemetry.configure() is False
+    with telemetry.span("mrf.test", pipeline_id="pl_1"):
+        telemetry.event("mrf.audit", step="x")

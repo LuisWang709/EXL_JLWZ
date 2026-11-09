@@ -1,6 +1,6 @@
 # A1 设计文档 — 编排器 · 统一 API · LLM 封装 · 存储 · MCP 框架 · 识别智能体
 
-作者：A1 Albert · 分支 `feat/a1-orchestrator` · 状态：v0.2（2026-11-05，§4–8 已实现，§9 识别智能体待实现）
+作者：A1 Albert · 分支 `feat/a1-orchestrator` · 状态：v0.3（2026-11-09，§4–9 全部实现；Cosmos、检查点丢失恢复、DeepSeek JSON 模式、App Insights 已加入）
 相关：[执行计划](../../C04%20A队执行计划%20—%20智能体模型风险工厂.md) · [openapi.yaml](../../openapi.yaml) · [架构总览](../architecture.md) · [A1 任务书](../team/A1.md)
 
 ---
@@ -547,3 +547,15 @@ tests/integration/ test_pipeline_e2e_mock.py   （API → job → 图 → auto_a
 | 学生订阅没有 Azure OpenAI | 封装层已支持 OpenAI / GitHub Models，切换只改环境变量 |
 | 契约在开发中需要变化 | 只允许新增可选字段；由 A1 审批，并在站会上同步 |
 | LLM 生成与评审用同一个模型 | `role=rater` 可以单独配模型和独立提示词；规则分占 60% 且有否决项（A3） |
+
+
+## 15. 11/9 增补：云端可靠性与 DeepSeek
+
+| 主题 | 实现 | 位置 |
+| --- | --- | --- |
+| Cosmos 存储 | `CosmosRepository`：每个集合一个 container，分区键 `/id`，用 etag 做乐观锁，用参数化 SQL 查询。托管身份没有权限建 container，所以必须在 Bicep 中预先创建（`REQUIRED_CONTAINERS`） | `mrf/storage/cosmos.py` |
+| 检查点丢失恢复 | ① 每个节点把 attempts 和 artifacts 镜像写到 Pipeline 文档；② 人工决定同时记在 Review 上，关卡节点发现已决定就直接使用，不再等待；③ `resume`、`start` 发现没有检查点时，按 `STATE_NODES` 从当前状态对应的节点重新进入。效果：容器重启后，等待 H1/H2 的流水线照样能继续 | `orchestrator/graph.py` |
+| SQLite 放在网络盘 | `MRF_SQLITE_JOURNAL_MODE=DELETE`。检查点库在 `setup()` 之后会切换 journal 模式，因为 LangGraph 会强制设为 WAL | `storage/sqlite.py`、`orchestrator/service.py` |
+| DeepSeek | `MRF_LLM_JSON_MODE=auto`：Azure OpenAI 和 api.openai.com 用 `json_schema`，其他 OpenAI 兼容端点用 `json_object`，并把 schema 写进提示词；仍然保留校验和 1 次修复 | `llm/openai_client.py` |
+| App Insights | 设置了 `APPLICATIONINSIGHTS_CONNECTION_STRING` 时调用 `configure_azure_monitor()`；每个节点一个 span（`mrf.node.<name>`），每条审计记录一个事件 | `mrf/telemetry.py` |
+| Mock 默认响应 | `MockLLM.register_default(role, fn)`：智能体模块自带离线响应，所以 CI 和没有 key 的演示都能跑真实智能体 | `llm/mock.py` |

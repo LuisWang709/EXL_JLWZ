@@ -9,10 +9,18 @@ from typing import Any
 import openai
 from pydantic import BaseModel
 
-from mrf.config import get_policy
+from mrf.config import get_policy, get_settings
 from mrf.llm.base import BaseLLM, ChatMessage, FatalLLMError, RawCompletion, TransientLLMError
 
 GITHUB_MODELS_URL = "https://models.inference.ai.azure.com"
+
+
+def schema_instruction(schema: type[BaseModel]) -> dict[str, str]:
+    return {
+        "role": "system",
+        "content": "Respond with a single json object (no prose, no code fences) that validates against this "
+        f"JSON Schema:\n{json.dumps(schema.model_json_schema(), separators=(',', ':'))}",
+    }
 
 
 def _retry_after(exc: openai.APIStatusError) -> float | None:
@@ -23,12 +31,27 @@ def _retry_after(exc: openai.APIStatusError) -> float | None:
         return None
 
 
+def resolve_json_mode(provider: str, base_url: str | None, configured: str) -> str:
+    """``json_schema`` (strict structured output) only where it is supported: Azure OpenAI and api.openai.com.
+    Other OpenAI-compatible endpoints (DeepSeek, GitHub Models, local servers) get ``json_object`` + the schema
+    in the prompt; the wrapper still validates and repairs."""
+    if configured != "auto":
+        return configured
+    if provider == "azure_openai":
+        return "json_schema"
+    if provider == "openai" and (not base_url or "api.openai.com" in base_url):
+        return "json_schema"
+    return "json_object"
+
+
 class OpenAICompatLLM(BaseLLM):
     def __init__(self, provider: str, sdk: openai.AsyncOpenAI | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.provider = provider
         timeout = float(get_policy()["retries"]["llm_transient"].get("timeout_s", 60))
         self.sdk = sdk or self._make_sdk(provider, timeout)
+        base_url = None if provider == "azure_openai" else str(getattr(self.sdk, "base_url", "") or "")
+        self.json_mode = resolve_json_mode(provider, base_url, get_settings().llm_json_mode)
 
     @staticmethod
     def _make_sdk(provider: str, timeout: float) -> openai.AsyncOpenAI:
@@ -79,20 +102,23 @@ class OpenAICompatLLM(BaseLLM):
         temperature: float,
         max_tokens: int | None,
     ) -> RawCompletion:
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": [m.to_openai() for m in messages],
-            "temperature": temperature,
-        }
+        kwargs: dict[str, Any] = {"model": model, "temperature": temperature}
+        sent = [m.to_openai() for m in messages]
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
         if tools:
             kwargs["tools"] = tools
-        elif json_schema is not None:
+        elif json_schema is not None and self.json_mode == "json_schema":
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": json_schema.__name__, "schema": json_schema.model_json_schema()},
             }
+        elif json_schema is not None:
+            # json_object / none: describe the schema in the prompt (DeepSeek also requires the word "json")
+            sent.append(schema_instruction(json_schema))
+            if self.json_mode == "json_object":
+                kwargs["response_format"] = {"type": "json_object"}
+        kwargs["messages"] = sent
         try:
             resp = await self.sdk.chat.completions.create(**kwargs)
         except openai.RateLimitError as exc:
