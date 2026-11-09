@@ -16,8 +16,11 @@ from mrf.storage.base import Page, Pagination, T, check_collection, check_field,
 
 
 class SqliteRepository:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, journal_mode: str = "WAL") -> None:
+        if journal_mode.upper() not in {"WAL", "DELETE", "TRUNCATE"}:
+            raise ValueError(f"unsupported journal_mode {journal_mode!r}")
         self.path = str(path)
+        self.journal_mode = journal_mode.upper()
         self._conn: aiosqlite.Connection | None = None
         self._tables: set[str] = set()
         self._lock = asyncio.Lock()
@@ -27,7 +30,7 @@ class SqliteRepository:
             if self.path != ":memory:":
                 Path(self.path).parent.mkdir(parents=True, exist_ok=True)
             self._conn = await aiosqlite.connect(self.path)
-            await self._conn.execute("PRAGMA journal_mode=WAL")
+            await self._conn.execute(f"PRAGMA journal_mode={self.journal_mode}")
         return self._conn
 
     async def _table(self, collection: str) -> str:

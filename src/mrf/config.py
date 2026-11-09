@@ -24,8 +24,11 @@ class Settings(BaseSettings):
     storage_backend: Literal["memory", "sqlite", "cosmos"] = "sqlite"
     sqlite_path: Path = Path("./var/mrf.sqlite")
     checkpoint_path: Path = Path("./var/checkpoints.sqlite")
+    # WAL is fastest on a local disk; use DELETE when the file sits on a network share (Azure Files)
+    sqlite_journal_mode: Literal["WAL", "DELETE", "TRUNCATE"] = "WAL"
     cosmos_endpoint: str = ""
     cosmos_database: str = "mrf"
+    cosmos_key: str = ""  # local emulator only; cloud uses managed identity
     blob_account_url: str = ""
 
     worker_concurrency: int = 2
@@ -33,6 +36,8 @@ class Settings(BaseSettings):
     llm_provider: Literal["mock", "azure_openai", "openai", "github_models"] = "mock"
     llm_model: str = "gpt-4o-mini"
     llm_reviewer_model: str = ""
+    # auto: json_schema on Azure OpenAI / api.openai.com, json_object elsewhere (DeepSeek, GitHub Models)
+    llm_json_mode: Literal["auto", "json_schema", "json_object", "none"] = "auto"
 
     mcp_url: str = "http://localhost:8000/mcp/"
     tool_transport: Literal["inprocess", "http"] = "inprocess"

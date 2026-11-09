@@ -724,6 +724,7 @@ components:
         current_step: { type: [string, "null"] }
         attempts: { type: object, additionalProperties: { type: integer }, examples: [{ doc: 2, parity: 1 }] }
         dataset_ids: { type: array, items: { type: string } }
+        artifacts: { type: object, description: "ids produced so far: doc_id, rating_id, rebuild_id, run_ids, report ids" }
         history: { type: array, items: { $ref: "#/components/schemas/StateTransition" } }
         usage: { $ref: "#/components/schemas/Usage" }
         last_error: { type: [object, "null"] }

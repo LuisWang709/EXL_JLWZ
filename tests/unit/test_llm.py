@@ -97,3 +97,54 @@ def test_role_models_from_config_and_reviewer_env(monkeypatch: pytest.MonkeyPatc
     get_settings.cache_clear()
     llm = MockLLM(default_model="gpt-4o-mini")
     assert llm.model_for("rater") == "gpt-4o" and llm.model_for("doc_writer") == "gpt-4o-mini"
+
+
+# ---------------------------------------------------------------- OpenAI-compatible providers (DeepSeek etc.)
+class _FakeCompletions:
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    async def create(self, **kwargs: object) -> object:
+        from types import SimpleNamespace as NS
+
+        self.sent.append(kwargs)
+        msg = NS(content='{"algorithm": "tree", "confidence": 0.5}', tool_calls=None)
+        return NS(choices=[NS(message=msg)], usage=NS(prompt_tokens=10, completion_tokens=5), model=kwargs["model"])
+
+
+def _fake_sdk(base_url: str) -> object:
+    from types import SimpleNamespace as NS
+
+    return NS(base_url=base_url, chat=NS(completions=_FakeCompletions()))
+
+
+def test_json_mode_resolution() -> None:
+    from mrf.llm.openai_client import resolve_json_mode
+
+    assert resolve_json_mode("azure_openai", None, "auto") == "json_schema"
+    assert resolve_json_mode("openai", "https://api.openai.com/v1/", "auto") == "json_schema"
+    assert resolve_json_mode("openai", "https://api.deepseek.com", "auto") == "json_object"
+    assert resolve_json_mode("github_models", "https://models.inference.ai.azure.com", "auto") == "json_object"
+    assert resolve_json_mode("openai", "https://api.deepseek.com", "json_schema") == "json_schema"
+
+
+async def test_deepseek_gets_json_object_and_schema_in_prompt() -> None:
+    from mrf.llm.openai_client import OpenAICompatLLM
+
+    sdk = _fake_sdk("https://api.deepseek.com")
+    llm = OpenAICompatLLM("openai", sdk=sdk, default_model="deepseek-chat")  # type: ignore[arg-type]
+    res = await llm.chat(MSG, role="classifier", json_schema=Out)
+    sent = sdk.chat.completions.sent[0]  # type: ignore[attr-defined]
+    assert sent["response_format"] == {"type": "json_object"} and sent["model"] == "deepseek-chat"
+    assert "json" in sent["messages"][-1]["content"] and '"algorithm"' in sent["messages"][-1]["content"]
+    assert res.parsed.algorithm == "tree" and res.usage.prompt_tokens == 10
+
+
+async def test_openai_gets_strict_json_schema() -> None:
+    from mrf.llm.openai_client import OpenAICompatLLM
+
+    sdk = _fake_sdk("https://api.openai.com/v1/")
+    llm = OpenAICompatLLM("openai", sdk=sdk)  # type: ignore[arg-type]
+    await llm.chat(MSG, role="classifier", json_schema=Out)
+    sent = sdk.chat.completions.sent[0]  # type: ignore[attr-defined]
+    assert sent["response_format"]["type"] == "json_schema" and len(sent["messages"]) == 1

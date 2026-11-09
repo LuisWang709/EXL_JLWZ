@@ -8,7 +8,9 @@
     ref = await get_blobs().put_bytes(f"rebuilds/{rb_id}/model.py", code.encode(), media_type="text/x-python")
 
 Backends (MRF_STORAGE_BACKEND): ``sqlite`` (default, file at MRF_SQLITE_PATH), ``memory`` (tests),
-``cosmos`` (cloud, 11/9). Blobs: local dir ``MRF_DATA_DIR/blobs`` (Azure Blob in cloud, 11/9).
+``cosmos`` (cloud: MRF_COSMOS_ENDPOINT + managed identity;
+containers listed in storage.cosmos.REQUIRED_CONTAINERS). Blobs: local dir ``MRF_DATA_DIR/blobs`` - in Azure
+MRF_DATA_DIR is the Azure Files mount (/data), so blobs persist without a separate Blob client.
 Never talk to SQL / Cosmos directly from other modules.
 """
 
@@ -47,9 +49,11 @@ def get_repo() -> Repository:
         if backend == "memory":
             _repo = MemoryRepository()
         elif backend == "sqlite":
-            _repo = SqliteRepository(s.sqlite_path)
+            _repo = SqliteRepository(s.sqlite_path, s.sqlite_journal_mode)
         else:
-            raise NotImplementedError("cosmos repository lands 11/9 (A1); use MRF_STORAGE_BACKEND=sqlite")
+            from mrf.storage.cosmos import CosmosRepository
+
+            _repo = CosmosRepository(s.cosmos_endpoint, s.cosmos_database, s.cosmos_key)
     return _repo
 
 

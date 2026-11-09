@@ -301,6 +301,9 @@ class Pipeline(_Base):
     current_step: str | None = None
     attempts: dict[str, int] = Field(default_factory=dict, description="{'doc': 2, 'parity': 1, ...}")
     dataset_ids: list[str] = Field(default_factory=list)
+    artifacts: dict[str, Any] = Field(
+        default_factory=dict, description="ids produced so far: doc_id, rating_id, rebuild_id, run_ids, report ids"
+    )
     history: list[StateTransition] = Field(default_factory=list)
     usage: Usage = Field(default_factory=Usage)
     last_error: dict[str, Any] | None = None

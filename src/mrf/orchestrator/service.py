@@ -116,8 +116,9 @@ async def decide_review(review_id: str, decision: ReviewDecision, operator: str)
     review.status = {"approve": "approved", "reject": "rejected", "edit": "edited"}[decision.decision]  # type: ignore[assignment]
     review.decided_by, review.decided_at = operator, utcnow()
     review.comment, review.edits = decision.comment, decision.edits
-    await repo.put(Collections.REVIEWS, review_id, review, if_version=version)  # two reviewers -> one wins
     payload = {"decision": decision.model_dump(mode="json") | {"operator": operator}, "review_id": review_id}
+    review.payload = {**review.payload, "decision": payload["decision"]}  # survives a lost checkpoint
+    await repo.put(Collections.REVIEWS, review_id, review, if_version=version)  # two reviewers -> one wins
     job, _ = await get_executor().submit("pipeline_resume", {"pipeline_id": review.pipeline_id}, payload=payload)
     return review, job
 
@@ -159,7 +160,11 @@ async def get_orchestrator() -> Orchestrator:
 
             settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             _conn = await aiosqlite.connect(str(settings.checkpoint_path))
-            saver = AsyncSqliteSaver(_conn)
+            sqlite_saver = AsyncSqliteSaver(_conn)
+            await sqlite_saver.setup()  # forces WAL ...
+            if settings.sqlite_journal_mode != "WAL":  # ... which must not be used on a network share
+                await _conn.execute(f"PRAGMA journal_mode={settings.sqlite_journal_mode}")
+            saver = sqlite_saver
         _orchestrator = Orchestrator(checkpointer=saver)
     return _orchestrator
 

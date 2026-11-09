@@ -58,10 +58,10 @@ async def test_unknown_kind_fails_cleanly() -> None:
 
 
 async def test_run_now_without_start_runs_pipeline() -> None:
-    from mrf.contracts.models import ArtifactRef
-    from mrf.orchestrator.service import create_pipeline
+    from mrf.orchestrator.service import UploadedFile, create_pipeline
 
-    p, _ = await create_pipeline(model_name="m", source_refs=[ArtifactRef(uri="file:///x.sas", filename="x.sas")])
+    sas = b"proc logistic data=dev; model default_flag(event='1') = age income; run;\n"
+    p, _ = await create_pipeline(model_name="m", files=[UploadedFile("m001.sas", sas)])
     ex = JobExecutor()
     job, _ = await ex.submit("pipeline", {"pipeline_id": p.pipeline_id}, payload={"auto_approve": True})
     done = await ex.run_now(job.job_id)
