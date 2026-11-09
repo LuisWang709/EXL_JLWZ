@@ -103,3 +103,8 @@ def test_repository_kb_covers_every_collection_and_section_query() -> None:
     assert top and "Documentation" in top[0]["text"]
     top = kb.search("PROC LOGISTIC reference level effect coding", top_k=1, collection="mapping")
     assert top and "CLASS" in top[0]["text"]
+
+
+def test_backend_switch(kb_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MRF_KB_BACKEND", "numpy")
+    assert KnowledgeBase(load_chunks(kb_root)).backend == "numpy"

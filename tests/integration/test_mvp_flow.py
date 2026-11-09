@@ -2,8 +2,8 @@
 have not delivered yet. Runs over HTTP: upload M001 SAS -> classify -> doc -> rate -> H1 -> rebuild ->
 parity -> usability -> H2 -> deploy -> monitoring registration.
 
-Real today: ClassifierAgent (A1), QualityCheckerImpl + MonitoringRegistrarImpl (A4).
-Stubs today: DocAgent, DocRater, ReportBuilder (A3), RebuildAgent, ModelRunner (A2).
+Real today: ClassifierAgent (A1), DocAgent + DocRater + ReportBuilderImpl (A3),
+QualityCheckerImpl + MonitoringRegistrarImpl (A4). Stubs today: RebuildAgent, ModelRunner (A2).
 When a teammate's class lands at its registry path, this test runs it automatically.
 """
 
@@ -53,6 +53,8 @@ def test_mvp_m001_end_to_end(client: TestClient) -> None:
     agents = Registry.discover().describe()
     assert agents["classifier"] == "ClassifierAgent"
     assert agents["quality_checker"] == "QualityCheckerImpl" and agents["monitoring"] == "MonitoringRegistrarImpl"
+    a3 = (agents["doc_writer"], agents["rater"], agents["report_builder"])
+    assert a3 == ("DocAgent", "DocRater", "ReportBuilderImpl")
 
     repo = get_repo()
     ds = Dataset(dataset_id="ds_m001_oot", name="M001 out-of-time", uri="data/clean/german_credit_test.csv",
@@ -83,6 +85,12 @@ def test_mvp_m001_end_to_end(client: TestClient) -> None:
     pipeline = client.get(f"/api/v1/pipelines/{started['pipeline_id']}", headers=H).json()["data"]
     assert [t["to_state"] for t in pipeline["history"]][-3:] == ["awaiting_signoff", "deployed", "monitoring"]
     assert {"doc_id", "rating_id", "rebuild_id", "run_ids", "validation_report_id"} <= set(pipeline["artifacts"])
+    mid = started["model_id"]
+    doc = client.get(f"/api/v1/models/{mid}/documents/{pipeline['artifacts']['doc_id']}", headers=H).json()["data"]
+    assert doc["status"] == "approved" and doc["evidence"]
+    reports = client.get(f"/api/v1/models/{mid}/reports", headers=H).json()["data"]["items"]
+    assert {r["type"] for r in reports} == {"analysis", "validation"}
+    assert all(r["summary"]["number_check"]["passed"] for r in reports)
 
     stored = asyncio.run(repo.get(Collections.MODELS, started["model_id"], ModelRecord))
     assert stored.lifecycle == "production"

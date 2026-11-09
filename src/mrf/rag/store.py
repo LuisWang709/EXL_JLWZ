@@ -184,9 +184,7 @@ class KnowledgeBase:
         self.vocab = {t: i for i, t in enumerate(vocab)}
         n = len(docs)
         self.idf = np.array([math.log((1 + n) / (1 + df[t])) + 1.0 for t in vocab], dtype=np.float32)
-        self.matrix = (
-            np.vstack([self._vector(d) for d in docs]) if docs else np.zeros((0, 0), dtype=np.float32)
-        )
+        self.matrix = np.vstack([self._vector(d) for d in docs]) if docs else np.zeros((0, 0), dtype=np.float32)
         self._faiss = self._faiss_index()
 
     @property
@@ -194,7 +192,11 @@ class KnowledgeBase:
         return "faiss" if self._faiss is not None else "numpy"
 
     def _faiss_index(self) -> Any:
-        if not self.chunks:
+        """FAISS unless ``MRF_KB_BACKEND=numpy`` or faiss is not installed (same ranking either way)."""
+        backend = os.environ.get("MRF_KB_BACKEND", "faiss").lower()
+        if backend == "azure_search":
+            log.warning("MRF_KB_BACKEND=azure_search is not implemented yet; using the local index")
+        if not self.chunks or backend == "numpy":
             return None
         try:
             import faiss
