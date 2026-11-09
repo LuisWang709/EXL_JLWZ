@@ -148,3 +148,33 @@ async def test_openai_gets_strict_json_schema() -> None:
     await llm.chat(MSG, role="classifier", json_schema=Out)
     sent = sdk.chat.completions.sent[0]  # type: ignore[attr-defined]
     assert sent["response_format"]["type"] == "json_schema" and len(sent["messages"]) == 1
+
+
+async def test_reasoning_models_get_no_temperature_and_max_completion_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mrf.llm.openai_client import OpenAICompatLLM, is_reasoning_model
+
+    monkeypatch.delenv("MRF_LLM_REASONING", raising=False)
+    assert is_reasoning_model("gpt-5-mini") and is_reasoning_model("o4-mini")
+    assert not is_reasoning_model("gpt-4o-mini") and not is_reasoning_model("deepseek-chat")
+    assert not is_reasoning_model("gpt-5-chat")
+
+    sdk = _fake_sdk("")
+    llm = OpenAICompatLLM("azure_openai", sdk=sdk, default_model="gpt-5-mini")  # type: ignore[arg-type]
+    await llm.chat(MSG, role="classifier", max_tokens=300)
+    sent = sdk.chat.completions.sent[0]  # type: ignore[attr-defined]
+    assert "temperature" not in sent and "max_tokens" not in sent and sent["max_completion_tokens"] == 300
+
+    sdk = _fake_sdk("https://api.deepseek.com")
+    llm = OpenAICompatLLM("openai", sdk=sdk, default_model="deepseek-chat")  # type: ignore[arg-type]
+    await llm.chat(MSG, role="classifier", max_tokens=300)
+    sent = sdk.chat.completions.sent[0]  # type: ignore[attr-defined]
+    assert sent["temperature"] == 0.0 and sent["max_tokens"] == 300
+
+
+def test_reasoning_detection_can_be_forced(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mrf.llm.openai_client import is_reasoning_model
+
+    monkeypatch.setenv("MRF_LLM_REASONING", "true")
+    assert is_reasoning_model("my-deployment")
+    monkeypatch.setenv("MRF_LLM_REASONING", "false")
+    assert not is_reasoning_model("gpt-5-mini")
