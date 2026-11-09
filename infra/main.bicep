@@ -1,7 +1,5 @@
 // One environment (dev or demo) of the Model Risk Factory (owner: A4).
-//   export MRF_API_KEY=$(openssl rand -hex 24) LLM_API_KEY=<key from A1> ADMIN_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
-//   az deployment group create -g rg-mrf-a-dev -f infra/main.bicep -p infra/params/dev.bicepparam
-// See infra/README.md for the full first-time sequence.
+// The full sequence (shared -> image -> environment) is in infra/README.md.
 targetScope = 'resourceGroup'
 
 @allowed([ 'dev', 'demo' ])
@@ -19,14 +17,23 @@ param deployUi bool = false
 param githubPrincipalId string = ''
 param adminObjectId string = ''
 
+@description('Cosmos account from shared.bicep; empty = SQLite on local disk (data lost on restart).')
+param cosmosAccountName string = ''
+
+@description('Existing Azure OpenAI resource (created in the portal); used when llmProvider = azure_openai.')
+param aoaiName string = ''
+param aoaiResourceGroup string = sharedResourceGroup
+param aoaiApiVersion string = '2025-04-01-preview'
+
 @secure()
 param apiKey string
 @secure()
 param llmApiKey string = ''
 @allowed([ 'mock', 'openai', 'azure_openai', 'github_models' ])
-param llmProvider string = 'openai'
-param llmModel string = 'deepseek-chat'
-param llmBaseUrl string = 'https://api.deepseek.com'
+param llmProvider string = 'azure_openai'
+@description('Model name, or the Azure deployment name (name deployments after the model, e.g. gpt-5-mini).')
+param llmModel string = 'gpt-5-mini'
+param llmBaseUrl string = ''
 @description('Env var that carries llmApiKey: OPENAI_API_KEY (openai / DeepSeek), AZURE_OPENAI_API_KEY, GITHUB_TOKEN.')
 param llmKeyEnvName string = 'OPENAI_API_KEY'
 
@@ -75,6 +82,33 @@ module acrPull 'modules/acr-pull.bicep' = {
   params: { acrName: acrName, principalId: appId.properties.principalId }
 }
 
+module cosmosDb 'modules/cosmos-db.bicep' = if (!empty(cosmosAccountName)) {
+  name: 'cosmos-db-${env}'
+  scope: resourceGroup(sharedResourceGroup)
+  params: { accountName: cosmosAccountName, databaseName: 'mrf-${env}', appPrincipalId: appId.properties.principalId }
+}
+
+module openaiAccess 'modules/openai-access.bicep' = if (llmProvider == 'azure_openai' && !empty(aoaiName)) {
+  name: 'openai-access-${env}'
+  scope: resourceGroup(aoaiResourceGroup)
+  params: { accountName: aoaiName, principalId: appId.properties.principalId }
+}
+
+var storageEnv = empty(cosmosAccountName)
+  ? []
+  : [
+      { name: 'MRF_STORAGE_BACKEND', value: 'cosmos' }
+      { name: 'MRF_COSMOS_ENDPOINT', value: cosmosDb.?outputs.endpoint ?? '' }
+      { name: 'MRF_COSMOS_DATABASE', value: 'mrf-${env}' }
+    ]
+
+var aoaiEnv = llmProvider == 'azure_openai'
+  ? [
+      { name: 'AZURE_OPENAI_ENDPOINT', value: openaiAccess.?outputs.endpoint ?? '' }
+      { name: 'AZURE_OPENAI_API_VERSION', value: aoaiApiVersion }
+    ]
+  : []
+
 module aca 'modules/aca.bicep' = {
   name: 'container-apps'
   params: {
@@ -99,6 +133,7 @@ module aca 'modules/aca.bicep' = {
     apiMinReplicas: apiMinReplicas
     uiMinReplicas: uiMinReplicas
     monitorCron: monitorCron
+    extraEnv: concat(storageEnv, aoaiEnv)
   }
 }
 

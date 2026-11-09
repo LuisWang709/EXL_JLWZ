@@ -9,6 +9,9 @@ param location string = resourceGroup().location
 @description('GitHub repository that may deploy (OIDC subject).')
 param githubRepo string = 'LuisWang709/EXL_JLWZ'
 
+@description('Cosmos DB free tier (one per subscription) holding one database per environment.')
+param deployCosmos bool = true
+
 var suffix = take(uniqueString(resourceGroup().id), 8)
 var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
 
@@ -45,7 +48,23 @@ resource githubAcrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Free tier: the first 1000 RU/s and 25 GB are free. dev and demo each get a 400 RU/s shared-throughput
+// database (infra/modules/cosmos-db.bicep), 800 RU/s in total, so the account stays free.
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = if (deployCosmos) {
+  name: 'cosmos-mrf-a-${suffix}'
+  location: location
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    enableFreeTier: true
+    consistencyPolicy: { defaultConsistencyLevel: 'Session' }
+    locations: [ { locationName: location, failoverPriority: 0, isZoneRedundant: false } ]
+    minimalTlsVersion: 'Tls12'
+  }
+}
+
 output acrName string = acr.name
+output cosmosAccountName string = deployCosmos ? cosmos.name : ''
 output acrLoginServer string = acr.properties.loginServer
 output githubClientId string = github.properties.clientId
 output githubPrincipalId string = github.properties.principalId

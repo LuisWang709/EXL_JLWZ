@@ -21,6 +21,8 @@ param llmKeyEnvName string
 param apiMinReplicas int
 param uiMinReplicas int
 param monitorCron string
+@description('Extra API env vars from main.bicep (Cosmos, Azure OpenAI endpoint ...).')
+param extraEnv array = []
 
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: workspaceName
@@ -86,7 +88,8 @@ var apiEnv = concat(
     { name: 'MLFLOW_TRACKING_URI', value: '/data/mlruns' }
     { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
   ],
-  llmEnv
+  llmEnv,
+  extraEnv
 )
 
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
