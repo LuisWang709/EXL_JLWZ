@@ -52,11 +52,17 @@ uv run python scripts/build_kb.py "model documentation" --collection ss1_23
    ```
    不能放进仓库的话，就只在本地/部署时放，并在 README 里说明。
 3. **和 A2 对齐映射笔记。** `kb/mapping/sas_r_python_differences.md` 是我写的通用差异清单，和 A2 的映射表合并或互相引用。
-4. **用真实 LLM 校准（最重要）。** CI 用的是 mock；真实模型的表现只有在本机跑才知道：
+4. **用真实 LLM 校准（最重要）。** CI 用的是 mock；真实模型的表现只有在本机跑才知道。用和演示环境**相同**的 LLM 配置
+   （A4 的 `feat/a4-azure-openai` 分支正在接 Azure OpenAI gpt-5-mini；变量名见 `.env.example`），例如：
    ```bash
+   # Azure OpenAI
+   MRF_LLM_PROVIDER=azure_openai MRF_LLM_MODEL=<部署名> AZURE_OPENAI_ENDPOINT=https://<资源名>.openai.azure.com \
+   AZURE_OPENAI_API_KEY=... uv run python scripts/calibrate_rater.py --show-doc
+   # 或 DeepSeek
    MRF_LLM_PROVIDER=openai OPENAI_BASE_URL=https://api.deepseek.com MRF_LLM_MODEL=deepseek-chat \
    OPENAI_API_KEY=... uv run python scripts/calibrate_rater.py --show-doc
    ```
+   如果想让评审用另一个模型（降低"自己给自己打分"的风险），再加 `MRF_LLM_REVIEWER_MODEL=<另一个部署名>`。
    检查：好样本是否通过、坏样本是否都不通过、说明书里 LLM 加的句子是否准确。需要调的地方：
    `agents/doc/agent.py` 的 `SYSTEM_PROMPT`、`rating/rater.py` 的 `SYSTEM_PROMPT`、`rating/rubric.yaml` 的权重。
    把输出贴给 Claude 也可以帮你调。
