@@ -1,0 +1,40 @@
+{#- Owner: A3. Analysis report: usability (consistency, performance, stability, fairness) + process improvement. -#}
+{% extends "_report_base.html.j2" %}
+{% import "_report_macros.html.j2" as m with context %}
+{% block title %}Analysis report{% endblock %}
+{% block body %}
+<h1>Analysis report</h1>
+<p class="muted"><span class="meta">{{ model.name }} · model {{ model.model_id }} · report {{ report_id }} · generated {{ generated_at }}</span></p>
+<div class="overall">Overall status: {{ m.badge(view.overall) }}</div>
+
+<h2>Usability by dimension</h2>
+{{ m.status_table() }}
+
+<h2>Performance and stability</h2>
+{{ m.performance_table() }}
+
+<h2>Fairness by segment</h2>
+{{ m.fairness_table() }}
+
+<h2>Process improvement</h2>
+<table>
+  <tr><th>Measure</th><th>Value</th></tr>
+  <tr><td>Elapsed time, upload to report (minutes)</td><td>{{ num("process.elapsed_minutes", ".1f") }}</td></tr>
+  <tr><td>Pipeline state changes</td><td>{{ num("process.transitions", "d") }}</td></tr>
+  <tr><td>Automation rate (state changes made by the system)</td><td>{{ num("process.automation_rate", ".0%") }}</td></tr>
+  <tr><td>Manual reviews (retries exhausted, low confidence, failed checks)</td><td>{{ num("process.manual_reviews", "d") }}</td></tr>
+  <tr><td>Documentation attempts</td><td>{{ num("process.doc_attempts", "d") }}</td></tr>
+  <tr><td>Rebuild attempts</td><td>{{ num("process.parity_attempts", "d") }}</td></tr>
+  <tr><td>LLM calls</td><td>{{ num("process.llm_calls", "d") }}</td></tr>
+  <tr><td>LLM tokens (prompt / completion)</td><td>{{ num("process.prompt_tokens", "d") }} / {{ num("process.completion_tokens", "d") }}</td></tr>
+  <tr><td>LLM cost (EUR)</td><td>{{ num("process.cost_eur", ".4f") }}</td></tr>
+  {% if has("process.baseline_hours") %}
+  <tr><td>Manual baseline (hours per model)</td><td>{{ num("process.baseline_hours", ".1f") }}</td></tr>
+  <tr><td>Hours saved per model</td><td>{{ num("process.hours_saved", ".1f") }}</td></tr>
+  {% if has("process.cost_saved_eur") %}<tr><td>Cost saved per model (EUR)</td><td>{{ num("process.cost_saved_eur", ".2f") }}</td></tr>{% endif %}
+  {% endif %}
+</table>
+
+{{ m.notes("Findings", view.findings) }}
+{{ m.notes("Warnings and data limitations", view.warnings) }}
+{% endblock %}

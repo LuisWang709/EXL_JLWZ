@@ -1,0 +1,23 @@
+{#- Owner: A3. Layout shared by analysis_report.html.j2 and validation_report.html.j2. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Report{% endblock %} - {{ model.name }}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:1040px;margin:28px auto;padding:0 22px;color:#1d2433;line-height:1.45}
+h1{font-size:1.55em;margin-bottom:4px}h2{font-size:1.15em;margin-top:1.7em;border-bottom:1px solid #d5dae3;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d5dae3;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-weight:600;font-size:.85em}
+.green{background:#d7f2df;color:#135c2b}.amber{background:#fdebc8;color:#7a4b00}.red{background:#f9d4d2;color:#8a1c14}.na{background:#e6e8ee;color:#4a5263}
+.overall{font-size:1.1em;margin:14px 0}.box{border:1px solid #c2c9d6;border-radius:6px;padding:10px 14px;background:#f8f9fb}
+.num{font-variant-numeric:tabular-nums}.sign td{height:28px}
+</style>
+</head>
+<body>
+{% block body %}{% endblock %}
+<p class="muted">Every number in this report is rendered from a recorded source (usability runs, rebuild, rating,
+pipeline usage or config/pipeline.yaml) and re-checked after rendering; the report is not stored if any number is
+untraceable or differs from its source. The source of each number is listed in the report summary returned by the API.</p>
+</body>
+</html>
