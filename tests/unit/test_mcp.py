@@ -16,14 +16,19 @@ async def fake_profile(dataset_id: str, columns: list[str] | None = None, max_to
     return {"dataset_id": dataset_id, "row_count": 10}
 
 
+async def pending_tool(query: str) -> list[Any]:
+    """A tool whose owner has not delivered yet."""
+    raise NotImplementedError
+
+
 async def test_inprocess_override_records_and_evidence() -> None:
-    tools = InProcessGateway(overrides={"profile_data": fake_profile})
+    tools = InProcessGateway(overrides={"profile_data": fake_profile, "pending_tool": pending_tool})
     assert (await tools.call("profile_data", dataset_id="ds_1"))["row_count"] == 10
     with pytest.raises(MRFError) as e:
         await tools.call("profile_data", dataset_id="missing")
     assert e.value.code is MRFCode.NOT_FOUND
     with pytest.raises(MRFError) as e:
-        await tools.call("search_kb", query="x")  # not implemented yet -> MRF-5000
+        await tools.call("pending_tool", query="x")  # not implemented yet -> MRF-5000
     assert e.value.code is MRFCode.INTERNAL
     assert [r.ok for r in tools.records] == [True, False, False]
     assert tools.records[0].evidence().ref == "tool:profile_data#call_1"
