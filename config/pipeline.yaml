@@ -63,3 +63,24 @@ reporting:
   # null = not measured yet -> reports show no savings rather than an invented number.
   manual_baseline_hours: null
   analyst_cost_eur_per_hour: null
+
+timeouts:
+  # Wall-clock cap for ONE agent call (= one attempt). Exceeded -> MRF-4001: counted as a failed attempt in the
+  # doc / parity loops, escalated to manual review elsewhere. LLM calls inside keep their own per-call timeout.
+  # Sized for reasoning models (gpt-5-mini): one call may take 3 x llm_transient.timeout_s with backoff.
+  step_s:
+    default: 600
+    classify: 300
+    rebuild: 900
+    usability_run: 900
+    validation_report: 600
+    register_monitoring: 60
+
+guards:
+  # Input screening at the API edge (A1, mrf.core.guards). Findings never echo the matched value.
+  pii: true                      # card numbers (Luhn), IBAN (mod-97), UK NINO, Irish PPSN (mod-23); e-mail in data files
+  prompt_injection: true         # instruction-override / rater-gaming phrases in code, names, review comments
+  injection_patterns_extra: []   # extra case-insensitive regexes
+  scan_max_bytes: 5000000        # per file / archive member
+  archive_max_members: 500       # .zip / .egp
+  archive_max_uncompressed_mb: 100
