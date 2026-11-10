@@ -1,0 +1,71 @@
+{#- Owner: A3. Validation report = the H2 independent sign-off pack. -#}
+{% extends "_report_base.html.j2" %}
+{% import "_report_macros.html.j2" as m with context %}
+{% block title %}Validation report{% endblock %}
+{% block body %}
+<h1>Validation report - H2 sign-off pack</h1>
+<p class="muted"><span class="meta">{{ model.name }} · model {{ model.model_id }} · report {{ report_id }} · generated {{ generated_at }}</span></p>
+<div class="box"><strong>Recommendation:</strong> {{ view.recommendation }} Overall status: {{ m.badge(view.overall) }}</div>
+
+<h2>Model identification</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Model</td><td><span class="meta">{{ model.name }} ({{ model.model_id }})</span></td></tr>
+  {% if cls %}
+  <tr><td>Language / algorithm / purpose</td><td><span class="meta">{{ cls.language.value }} / {{ cls.algorithm }} / {{ cls.purpose }}</span></td></tr>
+  <tr><td>Target</td><td><span class="meta">{{ cls.target or "not identified" }}</span></td></tr>
+  <tr><td>Identification confidence</td><td>{{ num("identification.confidence", ".2f") }}</td></tr>
+  {% endif %}
+  <tr><td>Owner</td><td><span class="meta">{{ model.owner or "not recorded" }}</span></td></tr>
+</table>
+
+<h2>Documentation</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Document</td><td><span class="meta">{{ document.doc_id if document else "none" }}</span>{% if document %} ({{ document.status }}){% endif %}</td></tr>
+  <tr><td>Rating total (pass at {{ num("thresholds.pass_score", ".0f") }})</td><td>{{ num("documentation.rating_total", ".1f") }}{% if rating %} - {{ "passed" if rating.passed else "failed" }}{% endif %}</td></tr>
+  <tr><td>Rule checks / LLM review</td><td>{{ num("documentation.rule_score", ".1f") }} / {{ num("documentation.llm_score", ".1f") }}</td></tr>
+  <tr><td>Attempt</td><td>{{ num("documentation.attempts", "d") }}</td></tr>
+  {% if rating and rating.veto_flags %}<tr><td>Veto flags</td><td>{{ rating.veto_flags | join(", ") }}</td></tr>{% endif %}
+</table>
+
+<h2>Rebuild and parity</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Rebuild</td><td><span class="meta">{{ rebuild.rebuild_id if rebuild else "none" }}</span>{% if rebuild %} ({{ rebuild.status }}){% endif %}</td></tr>
+  <tr><td>Records compared</td><td>{{ num("parity.n_records", "d") }}</td></tr>
+  <tr><td>Mismatching records</td><td>{{ num("parity.n_mismatches", "d") }}</td></tr>
+  <tr><td>Max absolute score difference</td><td>{{ num("parity.max_abs_diff", ".2e") }}</td></tr>
+  <tr><td>Tolerance</td><td>{% if has("parity.tolerance") %}{{ num("parity.tolerance", ".0e") }}{% else %}{{ num("thresholds.parity_tolerance", ".0e") }}{% endif %}</td></tr>
+  <tr><td>Rebuild attempt</td><td>{{ num("parity.attempts", "d") }}</td></tr>
+</table>
+
+<h2>Usability by dimension</h2>
+{{ m.status_table() }}
+
+<h2>Performance and stability</h2>
+{{ m.performance_table() }}
+
+<h2>Fairness by segment</h2>
+{{ m.fairness_table() }}
+
+{{ m.notes("Findings", view.findings) }}
+
+<h2>Sign-off checklist (H2)</h2>
+<table class="sign">
+  <tr><th>Check</th><th>Automated result</th><th>Validator confirms</th></tr>
+  <tr><td>Python rebuild reproduces the legacy scores within tolerance</td><td>{{ m.badge(view.statuses.consistency) }}</td><td></td></tr>
+  <tr><td>Documentation passed rating and was approved at H1</td><td>{{ "yes" if rating and rating.passed else "no" }}{% if document %}, document {{ document.status }}{% endif %}</td><td></td></tr>
+  <tr><td>Discrimination and calibration acceptable for the intended use</td><td>{{ m.badge(view.statuses.performance) }}</td><td></td></tr>
+  <tr><td>Score distribution stable against the development baseline</td><td>{{ m.badge(view.statuses.stability) }}</td><td></td></tr>
+  <tr><td>Segment outcomes reviewed; mitigation agreed where needed</td><td>{{ m.badge(view.statuses.fairness) }}</td><td></td></tr>
+  <tr><td>Limitations and conditions of use accepted (documentation section on assumptions and limitations)</td><td>see document</td><td></td></tr>
+  <tr><td>Monitoring thresholds and schedule agreed</td><td>config/pipeline.yaml monitoring</td><td></td></tr>
+</table>
+<table class="sign">
+  <tr><th>Validator</th><th>Date</th><th>Decision (approve / approve with conditions / reject)</th><th>Comments</th></tr>
+  <tr><td></td><td></td><td></td><td></td></tr>
+</table>
+
+{{ m.notes("Warnings and data limitations", view.warnings) }}
+{% endblock %}

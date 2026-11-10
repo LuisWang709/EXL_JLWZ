@@ -1,0 +1,81 @@
+{#- Owner: A3. Shared blocks for analysis / validation reports. Import "with context" (needs num, has, view).
+    Rule: never print a raw number - use num(key, spec). Labels, ids and dates go inside <span class="meta">. -#}
+{% macro badge(status) -%}
+{%- if status -%}<span class="badge {{ status }}">{{ status | upper }}</span>
+{%- else -%}<span class="badge na">NOT ASSESSED</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro status_table() -%}
+<table>
+  <tr><th>Dimension</th><th>Status</th><th>Key figure</th><th>Thresholds</th></tr>
+  <tr>
+    <td>Consistency: Python rebuild vs legacy scores</td>
+    <td>{{ badge(view.statuses.consistency) }}</td>
+    <td>{% if has("parity.n_records") %}{{ num("parity.n_mismatches", "d") }} mismatching of {{ num("parity.n_records", "d") }}
+      records; max abs difference {{ num("parity.max_abs_diff", ".2e") }}{% else %}n/a{% endif %}</td>
+    <td>tolerance {% if has("parity.tolerance") %}{{ num("parity.tolerance", ".0e") }}{% else %}{{ num("thresholds.parity_tolerance", ".0e") }}{% endif %}</td>
+  </tr>
+  <tr>
+    <td>Performance: discrimination and calibration</td>
+    <td>{{ badge(view.statuses.performance) }}</td>
+    <td>Gini {{ num("performance.gini") }}{% if has("performance.hl_p_value") %}; Hosmer-Lemeshow p-value {{ num("performance.hl_p_value") }}{% endif %}</td>
+    <td>green: Gini at least {{ num("thresholds.gini_green", ".2f") }}; amber: at least {{ num("thresholds.gini_amber", ".2f") }};
+      calibration amber below p {{ num("thresholds.hl_p_value_amber", ".2f") }}</td>
+  </tr>
+  <tr>
+    <td>Stability: score population stability index</td>
+    <td>{{ badge(view.statuses.stability) }}</td>
+    <td>score PSI {{ num("stability.psi_score") }}</td>
+    <td>amber from {{ num("thresholds.psi_amber", ".2f") }}; red above {{ num("thresholds.psi_red", ".2f") }}</td>
+  </tr>
+  <tr>
+    <td>Fairness: approval rates across segments</td>
+    <td>{{ badge(view.statuses.fairness) }}</td>
+    <td>disparate impact {{ num("fairness.disparate_impact") }}</td>
+    <td>green: at least {{ num("thresholds.di_green", ".2f") }} (four-fifths rule); amber: at least {{ num("thresholds.di_amber", ".2f") }}</td>
+  </tr>
+</table>
+{%- endmacro %}
+
+{% macro performance_table() -%}
+<table>
+  <tr><th>Metric</th><th>Value</th><th>Source</th></tr>
+  <tr><td>AUC</td><td>{{ num("performance.auc") }}</td><td rowspan="6">{% if runs %}usability run <span class="meta">{{ runs[0].run_id }}</span>
+    on dataset <span class="meta">{{ runs[0].dataset_id }}</span>{% else %}no usability run{% endif %}</td></tr>
+  <tr><td>Gini</td><td>{{ num("performance.gini") }}</td></tr>
+  <tr><td>KS</td><td>{{ num("performance.ks") }}</td></tr>
+  <tr><td>Brier score</td><td>{{ num("performance.brier", ".4f") }}</td></tr>
+  <tr><td>Hosmer-Lemeshow p-value</td><td>{{ num("performance.hl_p_value") }}</td></tr>
+  <tr><td>Score PSI</td><td>{{ num("stability.psi_score") }}</td></tr>
+</table>
+{%- endmacro %}
+
+{% macro fairness_table() -%}
+{% if view.segments %}
+<table>
+  <tr><th>Segment</th><th>Records</th><th>Bad rate</th><th>Approval rate</th><th>Adverse impact ratio</th><th>TPR (bads declined)</th><th>FPR (goods declined)</th></tr>
+  {% for seg in view.segments %}
+  <tr>
+    <td><span class="meta">{{ seg }}</span></td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".n", "d") }}</td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".bad_rate", ".1%") }}</td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".approval_rate", ".1%") }}</td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".adverse_impact_ratio", ".2f") }}</td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".tpr", ".1%") }}</td>
+    <td>{{ num("fairness.segments." ~ seg ~ ".fpr", ".1%") }}</td>
+  </tr>
+  {% endfor %}
+</table>
+<p>Reference segment (highest approval rate): <span class="meta">{{ view.fairness_reference }}</span>. Cases are declined when
+  the score is at or above {{ num("fairness.threshold", ".4f") }}, which declines as many cases as the observed bad rate;
+  {{ num("fairness.n", "d") }} records. Equal-opportunity gap (TPR spread) {{ num("fairness.max_tpr_gap", ".1%") }},
+  FPR spread {{ num("fairness.max_fpr_gap", ".1%") }}.</p>
+{% else %}
+<p>Not assessed - see warnings.</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro notes(title, items) -%}
+<h2>{{ title }}</h2>
+{% if items %}<ul>{% for item in items %}<li>{{ item }}</li>{% endfor %}</ul>{% else %}<p>None.</p>{% endif %}
+{%- endmacro %}

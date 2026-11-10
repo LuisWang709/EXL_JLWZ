@@ -49,3 +49,17 @@ monitoring:
   missing_rate_amber: 0.05       # share of missing values in any column
   missing_rate_red: 0.20
   default_schedule_cron: "0 6 * * 1"   # every Monday 06:00 UTC; demo overrides to hourly
+
+reporting:
+  # Analysis / validation report traffic lights (A3). Team policy proposed by A3 - confirm before the demo.
+  # Stability (score PSI) reuses monitoring.psi_amber / psi_red above.
+  gini_green: 0.40               # performance: Gini >= green -> green, >= amber -> amber, else red
+  gini_amber: 0.30
+  hl_p_value_amber: 0.05         # calibration: Hosmer-Lemeshow p-value below this -> performance at least amber
+  disparate_impact_green: 0.80   # fairness: four-fifths rule on approval rates across segments
+  disparate_impact_amber: 0.70
+  fairness_segment_column: age_band
+  # Process-improvement baseline: hours to document + rebuild one model by hand (A2 timing study, 11/11).
+  # null = not measured yet -> reports show no savings rather than an invented number.
+  manual_baseline_hours: null
+  analyst_cost_eur_per_hour: null

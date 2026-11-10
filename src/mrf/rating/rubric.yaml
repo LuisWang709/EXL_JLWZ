@@ -1,8 +1,11 @@
-# Owner: A3. Draft rubric - weights must match config/pipeline.yaml (rating.*).
-version: 0
-rule_checks:              # 60 points total
-  section_completeness:   # SS1/23-aligned sections present and non-empty
+# Owner: A3. Rubric used by mrf.rating.rater.DocRater. Weights must match config/pipeline.yaml (rating.*):
+# rule_checks sum to rating.rule_weight (60), llm_review sums to rating.llm_weight (40), pass_score and veto
+# equal rating.pass_score / rating.veto_flags (tests/unit/test_rater.py checks this).
+version: 1
+rule_checks:              # 60 points total, deterministic
+  section_completeness:   # SS1/23-aligned sections present, long enough and evidenced
     weight: 20
+    min_words: 15         # fewer words (or no evidence marker) -> half credit for that section
     required_sections:
       - purpose_and_use
       - data
@@ -12,15 +15,19 @@ rule_checks:              # 60 points total
       - implementation
       - monitoring
       - governance
-  evidence_coverage:      # every claim has Evidence
+  evidence_coverage:      # share of statements (bullets / table rows / lines) with a valid [E#] marker
     weight: 20
-  variable_consistency:   # variables in doc == parse_code features
+  variable_consistency:   # share of parse_code features documented in backticks
     weight: 20
-llm_review:               # 40 points total, independent prompt/context
+numbers:
+  # integers up to this value are not checked against evidence (enumerations, "3 attempts", "Principle 4")
+  small_integer_limit: 10
+llm_review:               # 40 points total, independent prompt and context (role "rater")
   methodology_accuracy: 15
   limitations_adequacy: 15
   clarity: 10
 veto:
-  - fabricated_variable
-  - fabricated_number
+  - fabricated_variable   # a backticked identifier that is not in the code, the dataset or verified evidence
+  - fabricated_number     # a number that is not in any verified evidence quote or the source code
 pass_score: 80
+max_comments: 12          # comments are fed back verbatim into the next draft
