@@ -38,8 +38,10 @@ export GITHUB_PRINCIPAL_ID=$(az deployment group show -g rg-mrf-a-shared -n shar
 # Azure OpenAI: create the resource in rg-mrf-a-shared in the portal, deploy gpt-5-mini named "gpt-5-mini"
 export AOAI_NAME=<resource name>
 
-# first image
-az acr build -r "$ACR_NAME" -t mrf-api:bootstrap -f docker/Dockerfile.api .
+# first image. ACR Tasks (az acr build) is not allowed on Azure for Students -> build with Docker and push
+# (or let cd-dev build it: it pushes mrf-api:<sha> and skips the deploy while dev does not exist yet)
+az acr login -n "$ACR_NAME"
+docker buildx build --platform linux/amd64 -f docker/Dockerfile.api -t "$ACR_NAME.azurecr.io/mrf-api:bootstrap" --push .
 export API_IMAGE="$ACR_NAME.azurecr.io/mrf-api:bootstrap"
 
 # secrets / ids

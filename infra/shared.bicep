@@ -6,8 +6,10 @@ targetScope = 'resourceGroup'
 @description('Azure for Students only allows a few regions; ours is swedencentral.')
 param location string = resourceGroup().location
 
-@description('GitHub repository that may deploy (OIDC subject).')
-param githubRepo string = 'LuisWang709/EXL_JLWZ'
+// GitHub's immutable OIDC subject (repos created after 2026-07-15): owner@ownerId/repo@repoId.
+// The ids never change, even if the repo is renamed. Old format 'LuisWang709/EXL_JLWZ' is rejected (AADSTS700213).
+@description('GitHub repository that may deploy, as it appears in the OIDC subject.')
+param githubRepo string = 'LuisWang709@304986476/EXL_JLWZ@1442945666'
 
 @description('Cosmos DB free tier (one per subscription) holding one database per environment.')
 param deployCosmos bool = true
