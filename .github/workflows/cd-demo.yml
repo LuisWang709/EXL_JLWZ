@@ -1,6 +1,6 @@
 # Owner: A4. Manual: Actions -> cd-demo -> Run workflow (branch: main) -> tag, e.g. v0.9.0.
 # Deploys the image that cd-dev already built and tested for that tag's commit - nothing is rebuilt.
-# Runs from main so the OIDC subject stays repo:...:ref:refs/heads/main (one federated credential).
+# Runs from main so the OIDC subject stays repo:<owner>@<id>/<repo>@<id>:ref:refs/heads/main (one federated credential).
 #   secrets   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, MRF_DEMO_API_KEY
 #   variables ACR_NAME
 name: cd-demo
