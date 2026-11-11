@@ -187,3 +187,14 @@ async def test_missing_container_with_managed_identity_explains_and_with_key_cre
 
 def test_required_containers_cover_all_collections() -> None:
     assert {"pipelines", "jobs", "reviews", "audit", "idempotency", "monitoring_metrics"} <= set(REQUIRED_CONTAINERS)
+
+
+def test_bicep_containers_match_collections() -> None:
+    """With managed identity the app cannot create containers, so infra/modules/cosmos-db.bicep must list
+    exactly mrf.storage.Collections (issue #17). Adding a collection without the Bicep line fails here."""
+    from mrf.config import REPO_ROOT
+
+    bicep = (REPO_ROOT / "infra" / "modules" / "cosmos-db.bicep").read_text(encoding="utf-8")
+    block = re.search(r"var containers = \[(.*?)\]", bicep, re.DOTALL)
+    assert block, "containers list not found in cosmos-db.bicep"
+    assert sorted(re.findall(r"'([a-z_]+)'", block.group(1))) == REQUIRED_CONTAINERS
