@@ -208,9 +208,8 @@ async def test_report_with_a_stray_number_is_refused(tmp_path: Path, monkeypatch
 
 async def test_other_report_types() -> None:
     ctx = await m001_context()
-    with pytest.raises(MRFError) as err:
-        await ReportBuilderImpl().build(ctx, "monitoring")
-    assert err.value.code == MRFCode.INTERNAL and "A4" in err.value.message
+    monitoring = await ReportBuilderImpl().build(ctx, "monitoring")  # delegated to A4's mrf.monitoring.report
+    assert monitoring.type == "monitoring" and monitoring.model_id == ctx.model.model_id
     with pytest.raises(MRFError) as err:
         await ReportBuilderImpl().build(ctx, "weekly")
     assert err.value.code == MRFCode.INPUT_BODY

@@ -4,7 +4,8 @@ Owner: A4. Endpoints (see openapi.yaml for request/response schemas):
     GET  /api/v1/monitoring/models/{model_id}/metrics?from=&to=   200
     GET  /api/v1/monitoring/alerts                                200  (paged)
     PUT  /api/v1/monitoring/schedules/{model_id}                  200  409 MRF-3201 if the model is not deployed
-    POST /api/v1/monitoring/runs                                  202  one batch, or every pending batch (timer)
+    POST /api/v1/monitoring/runs                                  202  one batch, or every pending batch (timer);
+                                                                       report=true also builds a monitoring report
 """
 
 from __future__ import annotations
@@ -99,6 +100,7 @@ async def put_schedule(model_id: str, body: ScheduleIn, request: Request) -> JSO
 class MonitoringRunIn(BaseModel):
     model_id: str | None = Field(default=None, description="limit to one model; omit = every enabled schedule")
     dataset_id: str | None = Field(default=None, description="process this one batch (needs model_id)")
+    report: bool = Field(default=False, description="also build a monitoring report now")
 
 
 @router.post("/runs", status_code=202)

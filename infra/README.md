@@ -57,6 +57,20 @@ curl -s "$API/healthz"; curl -s "$API/readyz"; curl -s -H "X-API-Key: $MRF_API_K
 
 Demo is the same with `rg-mrf-a-demo`, `params/demo.bicepparam` and its **own** `MRF_API_KEY`.
 
+### Adding the UI (once)
+
+`cd-dev` builds and pushes `mrf-ui:<sha>` on every merge but only *updates* an existing UI app. Create it once by
+re-running the dev deployment with the current API image and a UI image:
+
+```bash
+export API_IMAGE=$(az containerapp show -n mrf-api-dev -g rg-mrf-a-dev --query 'properties.template.containers[0].image' -o tsv)
+export UI_IMAGE="${API_IMAGE/mrf-api/mrf-ui}"     # same commit
+az deployment group create -g rg-mrf-a-dev -f infra/main.bicep -p infra/params/dev.bicepparam -o none
+az deployment group show -g rg-mrf-a-dev -n main --query properties.outputs.uiUrl.value -o tsv
+```
+
+The UI asks for the API key at sign-in (the container holds it, so the public URL alone is not enough).
+
 ## GitHub settings for CD (repo Settings -> Secrets and variables -> Actions)
 
 | Kind | Name | Value |

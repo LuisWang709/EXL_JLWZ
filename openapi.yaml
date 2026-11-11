@@ -567,6 +567,13 @@ paths:
               properties:
                 model_id: { type: [string, "null"], description: "limit to one model" }
                 dataset_id: { type: [string, "null"], description: "one batch; requires model_id" }
+                report:
+                  type: boolean
+                  default: false
+                  description: >-
+                    Also build a monitoring report now (additive, A4). With model_id: for that model, even without
+                    a schedule. Without: one per enabled schedule. The timer builds one anyway when new batches
+                    were processed or the schedule's cron fired since the last report.
       responses:
         "202": { $ref: "#/components/responses/Accepted" }
         "404": { $ref: "#/components/responses/Error" }
