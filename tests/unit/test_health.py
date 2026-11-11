@@ -25,7 +25,8 @@ def test_healthz_is_alive(client: TestClient) -> None:
 def test_readyz_ok_with_mock_llm(client: TestClient) -> None:
     resp = client.get("/readyz")
     assert resp.status_code == 200
-    assert resp.json()["data"] == {"ready": True, "checks": {"storage": "ok", "data_dir": "ok", "llm_config": "ok"}}
+    data = resp.json()["data"]
+    assert data["ready"] is True and data["checks"] == {"storage": "ok", "data_dir": "ok", "llm_config": "ok"}
 
 
 def test_readyz_503_when_llm_endpoint_missing(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -51,3 +52,15 @@ def test_readyz_503_when_storage_fails(client: TestClient, monkeypatch: pytest.M
     resp = client.get("/readyz")
     assert resp.status_code == 503
     assert resp.json()["data"]["checks"]["storage"] == "error: RuntimeError"
+
+
+def test_readyz_reports_runtime_without_secrets(client: TestClient) -> None:
+    data = client.get("/readyz").json()["data"]
+    assert data["runtime"] == {
+        "env": "local",
+        "storage_backend": "memory",
+        "llm_provider": "mock",
+        "llm_model": data["runtime"]["llm_model"],
+        "guards_enabled": True,
+    }
+    assert "test-key" not in str(data)
