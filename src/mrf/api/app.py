@@ -29,6 +29,26 @@ def _request_id(request: Request) -> str:
     return rid or new_request_id()
 
 
+def _oversized(request: Request) -> JSONResponse | None:
+    """Reject a body larger than ``max_request_mb`` from its Content-Length, before it is read (MRF-1002)."""
+    from mrf.config import get_settings
+
+    raw = request.headers.get("content-length")
+    if raw is None or request.url.path.startswith("/mcp"):
+        return None
+    limit = get_settings().max_request_mb * 1024 * 1024
+    try:
+        size = int(raw)
+    except ValueError:
+        size = -1
+    if 0 <= size <= limit:
+        return None
+    code = MRFCode.INPUT_FILE_SIZE if size > limit else MRFCode.INPUT_BODY
+    msg = f"request body exceeds {get_settings().max_request_mb} MB" if size > limit else "invalid Content-Length"
+    env = error(_request_id(request), code, message=msg, errors=[ErrorItem(code=code.value, message=msg)])
+    return JSONResponse(status_code=code.http_status, content=env.model_dump(mode="json"))
+
+
 def create_app(*, mount_mcp: bool = True, start_workers: bool = True) -> FastAPI:
     from mrf import telemetry
 
@@ -65,6 +85,10 @@ def create_app(*, mount_mcp: bool = True, start_workers: bool = True) -> FastAPI
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):  # type: ignore[no-untyped-def]
         request.state.request_id = request.headers.get("X-Request-ID") or new_request_id()
+        too_big = _oversized(request)
+        if too_big is not None:  # middleware sits outside the exception handlers: build the envelope here
+            too_big.headers["X-Request-ID"] = request.state.request_id
+            return too_big
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         return response

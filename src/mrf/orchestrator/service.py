@@ -12,7 +12,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from mrf.config import get_settings
 from mrf.contracts.models import ArtifactRef, Gate, Job, ModelRecord, Pipeline, Review, ReviewDecision, utcnow
-from mrf.core import MRFCode, MRFError, PipelineState
+from mrf.core import MRFCode, MRFError, PipelineState, guards
 from mrf.core.ids import new_id
 from mrf.orchestrator.graph import TARGET_NODES, Orchestrator
 from mrf.storage import Collections, get_blobs, get_repo
@@ -43,6 +43,28 @@ def _check_file(f: UploadedFile) -> None:
         )
 
 
+async def screen_source_refs(refs: list[ArtifactRef]) -> None:
+    """API callers may only reference files already in our blob store; they are screened like uploads."""
+    blobs = get_blobs()
+    for ref in refs:
+        try:
+            data = await blobs.get_bytes(ref.uri)
+        except MRFError as exc:
+            raise MRFError(
+                MRFCode.INPUT_BODY, f"source file '{ref.filename}' is not readable: {exc.message}", field="source_files"
+            ) from exc
+        _check_file(UploadedFile(ref.filename, data, ref.media_type))
+        guards.raise_on(guards.scan_file(ref.filename, data), field="source_files")
+
+
+def _screen_text_fields(**fields: str | None) -> None:
+    findings: list[guards.Finding] = []
+    for name, value in fields.items():
+        if value:
+            findings += guards.scan_text(value, name)
+    guards.raise_on(findings)
+
+
 async def create_pipeline(
     *,
     model_name: str,
@@ -56,10 +78,13 @@ async def create_pipeline(
     repo, blobs = get_repo(), get_blobs()
     if not files and not source_refs:
         raise MRFError(MRFCode.INPUT_BODY, "at least one source file is required", field="files")
+    _screen_text_fields(model_name=model_name, owner=owner, description=description)
+    for f in files or []:  # validate everything before storing anything
+        _check_file(f)
+        guards.raise_on(guards.scan_file(f.filename, f.data), field="files")
     model_id, pipeline_id = new_id("model"), new_id("pipeline")
     refs = list(source_refs or [])
     for f in files or []:
-        _check_file(f)
         name = PurePosixPath(f.filename.replace("\\", "/")).name
         media = f.media_type or mimetypes.guess_type(name)[0] or "text/plain"
         refs.append(await blobs.put_bytes(f"models/{model_id}/source/{name}", f.data, media_type=media, filename=name))
@@ -101,6 +126,10 @@ async def decide_review(review_id: str, decision: ReviewDecision, operator: str)
     }[review.gate]
     if pipeline.state != expected:
         raise MRFError(MRFCode.INVALID_STATE, f"pipeline is {pipeline.state.value}, expected {expected.value}")
+    findings = guards.scan_text(decision.comment or "", "comment")
+    for key, value in (decision.edits.get("sections") or {}).items():
+        findings += guards.scan_text(str(value), f"edits.sections.{key}")
+    guards.raise_on(findings)  # comments and edits are fed back into the next LLM prompt
     if review.gate == Gate.H2 and decision.decision == "edit":
         raise MRFError(MRFCode.INPUT_BODY, "H2 sign-off supports approve or reject only", field="decision")
     if decision.target_state is not None:

@@ -7,11 +7,12 @@ Big objects live in the Repository; the graph state only holds ids and counters.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Any, TypedDict, TypeVar
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -42,6 +43,7 @@ from mrf.storage import Collections, Repository, get_repo
 
 log = logging.getLogger(__name__)
 S = PipelineState
+T = TypeVar("T")
 
 #: codes that count as one failed attempt of a retryable step (then normal retry routing)
 RETRYABLE = {
@@ -158,6 +160,9 @@ class Orchestrator:
         self.doc_max = int(policy["retries"]["doc_quality_max_attempts"])
         self.parity_max = int(policy["retries"]["parity_max_attempts"])
         self.min_conf = float(policy["classification"]["min_confidence"])
+        self.step_timeouts: dict[str, float] = {
+            str(k): float(v) for k, v in ((policy.get("timeouts") or {}).get("step_s") or {}).items()
+        }
         self.graph = self._build().compile(checkpointer=checkpointer or InMemorySaver())
 
     # ================================================================== public API
@@ -287,13 +292,24 @@ class Orchestrator:
         node.__name__ = f"n_{name}"
         return node
 
+    async def _call(self, step: str, awaitable: Awaitable[T]) -> T:
+        """One agent call (= one attempt) under the step's wall-clock cap; exceeded -> MRF-4001."""
+        limit = self.step_timeouts.get(step, self.step_timeouts.get("default"))
+        if not limit:
+            return await awaitable
+        try:
+            async with asyncio.timeout(limit):
+                return await awaitable
+        except TimeoutError as exc:
+            raise MRFError(MRFCode.LLM_TIMEOUT, f"step {step} exceeded {limit:.0f}s") from exc
+
     # ================================================================== nodes
     async def n_entry(self, s: GraphState) -> Command[Any]:
         return Command(goto=s.get("resume_target") or "classify", update={"resume_target": None})
 
     async def n_classify(self, s: GraphState) -> Command[Any]:
         ctx = await self._ctx(s)
-        result = await self.registry.classifier.classify(ctx)
+        result = await self._call("classify", self.registry.classifier.classify(ctx))
         model = ctx.model
         model.classification = result
         model.updated_at = utcnow()
@@ -325,7 +341,7 @@ class Orchestrator:
         )
         ctx = await self._ctx(s, attempt=n)
         try:
-            doc = await self.registry.doc_writer.draft(ctx)
+            doc = await self._call("doc_draft", self.registry.doc_writer.draft(ctx))
         except MRFError as exc:
             if exc.code in RETRYABLE:
                 return self._retry_or_escalate(s, "doc", n, [exc.message], "doc_draft", MRFCode.DOC_RATING_EXHAUSTED)
@@ -346,7 +362,7 @@ class Orchestrator:
         doc = await self.repo.get(Collections.DOCUMENTS, s["artifacts"]["doc_id"], Document)
         ctx = await self._ctx(s, attempt=n)
         try:
-            rating = await self.registry.rater.rate(ctx, doc)
+            rating = await self._call("doc_rate", self.registry.rater.rate(ctx, doc))
         except MRFError as exc:
             if exc.code in RETRYABLE:
                 return self._retry_or_escalate(s, "doc", n, [exc.message], "doc_draft", MRFCode.DOC_RATING_EXHAUSTED)
@@ -407,7 +423,7 @@ class Orchestrator:
         await self._transition(pid, S.REBUILDING, step="rebuild", note=f"attempt {n}", attempts={"parity": n})
         ctx = await self._ctx(s, attempt=n)
         try:
-            rb = await self.registry.rebuilder.rebuild(ctx)
+            rb = await self._call("rebuild", self.registry.rebuilder.rebuild(ctx))
         except MRFError as exc:
             if exc.code in RETRYABLE:
                 return self._retry_or_escalate(s, "parity", n, [exc.message], "rebuild", MRFCode.PARITY_EXHAUSTED)
@@ -444,7 +460,7 @@ class Orchestrator:
         ctx = await self._ctx(s)
         run_ids: list[str] = []
         for ds in p.dataset_ids:
-            run = await self.registry.runner.run(ctx, ds, "usability")
+            run = await self._call("usability_run", self.registry.runner.run(ctx, ds, "usability"))
             await self.repo.put(Collections.RUNS, run.run_id, run)
             run_ids.append(run.run_id)
         if not p.dataset_ids:
@@ -455,7 +471,7 @@ class Orchestrator:
         ctx = await self._ctx(s)
         ids: dict[str, str] = {}
         for kind in ("analysis", "validation"):
-            report = await self.registry.report_builder.build(ctx, kind)
+            report = await self._call("validation_report", self.registry.report_builder.build(ctx, kind))
             await self.repo.put(Collections.REPORTS, report.report_id, report)
             ids[f"{kind}_report_id"] = report.report_id
         return Command(goto="gate_h2", update={"artifacts": {**s.get("artifacts", {}), **ids}})
@@ -489,7 +505,7 @@ class Orchestrator:
         return Command(goto="register_monitoring")
 
     async def n_register_monitoring(self, s: GraphState) -> Command[Any]:
-        await self.registry.monitoring.register(await self._ctx(s))
+        await self._call("register_monitoring", self.registry.monitoring.register(await self._ctx(s)))
         await self._transition(s["pipeline_id"], S.MONITORING, step="register_monitoring")
         return Command(goto=END)
 

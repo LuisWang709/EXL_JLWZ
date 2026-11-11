@@ -58,7 +58,11 @@ paths:
                 files:
                   type: array
                   items: { type: string, format: binary }
-                  description: source files (.sas .r .R .py .ipynb .txt or .zip). Max size MRF_MAX_UPLOAD_MB.
+                  description: |
+                    source files (.sas .r .R .py .ipynb .txt .zip .egp .json .yaml .md .csv). Max MRF_MAX_UPLOAD_MB per file,
+                    MRF_MAX_REQUEST_MB per request. Every file (archive members included), model_name, owner and
+                    description are screened for personal data (MRF-1004) and prompt injection (MRF-1005); findings
+                    in `errors[].detail.findings` give file, kind and line - never the matched value.
                 model_name: { type: string }
                 owner: { type: string }
                 description: { type: string }
@@ -87,9 +91,9 @@ paths:
                           model_id: { type: string }
                           job_id: { type: string }
                           poll: { type: string }
-        "413": { $ref: "#/components/responses/Error" }
-        "415": { $ref: "#/components/responses/Error" }
-        "422": { $ref: "#/components/responses/Error" }
+        "413": { description: "MRF-1002 file / request / archive too large", $ref: "#/components/responses/Error" }
+        "415": { description: "MRF-1001 file type not allowed or invalid archive", $ref: "#/components/responses/Error" }
+        "422": { description: "MRF-1004 personal data, MRF-1005 prompt injection, MRF-1006 invalid body or unreadable source_files", $ref: "#/components/responses/Error" }
     get:
       tags: [pipelines]
       operationId: listPipelines
@@ -213,6 +217,7 @@ paths:
                           job_id: { type: string }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { description: "MRF-1004 / MRF-1005 in comment or edits, MRF-1006 invalid decision", $ref: "#/components/responses/Error" }
 
   /api/v1/jobs/{job_id}:
     get:
@@ -271,13 +276,17 @@ paths:
         - { name: format, in: query, schema: { type: string, enum: [json, markdown, html], default: json } }
       responses:
         "200":
-          description: ok
+          description: ok (format=markdown -> text/markdown, format=html -> text/html)
           content:
             application/json:
               schema:
                 allOf:
                   - $ref: "#/components/schemas/Envelope"
                   - properties: { data: { $ref: "#/components/schemas/Document" } }
+            text/markdown:
+              schema: { type: string }
+            text/html:
+              schema: { type: string }
         "404": { $ref: "#/components/responses/Error" }
 
   /api/v1/models/{model_id}/documents/{doc_id}/ratings:
@@ -466,15 +475,18 @@ paths:
       parameters:
         - $ref: "#/components/parameters/ModelId"
         - { name: report_id, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [json, html], default: json }, description: "html returns the stored report page itself" }
       responses:
         "200":
-          description: ok
+          description: ok (format=html -> text/html)
           content:
             application/json:
               schema:
                 allOf:
                   - $ref: "#/components/schemas/Envelope"
                   - properties: { data: { $ref: "#/components/schemas/Report" } }
+            text/html:
+              schema: { type: string }
         "404": { $ref: "#/components/responses/Error" }
 
   # ------------------------------------------------------------------ A4
@@ -936,7 +948,7 @@ components:
       required: [decision]
       properties:
         decision: { type: string, enum: [approve, reject, edit] }
-        comment: { type: string }
+        comment: { type: string, description: "screened for prompt injection and personal data (MRF-1005 / MRF-1004): it is fed into the next LLM prompt" }
         edits: { type: object, description: "edit: field patches, e.g. {sections: {methodology: '...'}} or {classification: {...}}" }
         target_state: { $ref: "#/components/schemas/PipelineState" }
 

@@ -15,7 +15,12 @@ SCORE_COLUMNS = ("score", "pd", "pd_python", "prediction", "probability")
 
 
 def _local_uri(uri: str) -> str:
-    return unquote(urlparse(uri).path) if uri.startswith("file://") else uri
+    if not uri.startswith("file://"):
+        return uri
+    path = unquote(urlparse(uri).path)
+    if len(path) > 2 and path[0] == "/" and path[2] == ":":  # file:///C:/... on Windows
+        path = path[1:]
+    return path
 
 
 def load_frame(ds: Dataset) -> pd.DataFrame:

@@ -42,7 +42,9 @@ class Settings(BaseSettings):
     mcp_url: str = "http://localhost:8000/mcp/"
     tool_transport: Literal["inprocess", "http"] = "inprocess"
 
-    max_upload_mb: int = 20
+    max_upload_mb: int = 20  # per file
+    max_request_mb: int = 60  # whole request body (Content-Length) -> MRF-1002 before parsing
+    guards_enabled: bool = True  # PII / prompt-injection screening (MRF-1004/1005); never disable outside tests
 
 
 @lru_cache

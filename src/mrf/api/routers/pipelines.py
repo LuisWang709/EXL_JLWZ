@@ -18,7 +18,7 @@ from mrf.api.deps import IdemKey, Paging, accepted_response, ok, paged
 from mrf.contracts.models import ArtifactRef, Pipeline
 from mrf.core import MRFCode, MRFError, PipelineState
 from mrf.jobs import body_hash, get_executor
-from mrf.orchestrator.service import UploadedFile, create_pipeline
+from mrf.orchestrator.service import UploadedFile, create_pipeline, screen_source_refs
 from mrf.storage import Collections, get_repo
 
 router = APIRouter(prefix="/pipelines", tags=["pipelines"])
@@ -82,6 +82,7 @@ async def create(request: Request, idem: IdemKey = None) -> JSONResponse:
             raise MRFError(
                 MRFCode.INPUT_BODY, "invalid PipelineCreate body", detail={"errors": str(exc)[:1000]}
             ) from exc
+        await screen_source_refs(body.source_files)
         return await _start(
             request,
             idem,
