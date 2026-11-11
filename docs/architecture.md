@@ -13,8 +13,9 @@ flowchart LR
 
     subgraph API["API 容器 (FastAPI)"]
       R["/api/v1 路由<br/>信封·返回码·幂等<br/>A1"]
+      GD["输入防护<br/>个人数据 MRF-1004·提示词注入 MRF-1005<br/>压缩包/请求体上限 MRF-1002<br/>A1"]
       Q["任务执行器<br/>asyncio 队列 + jobs 表<br/>A1"]
-      G["LangGraph 编排器<br/>状态机·重试·H1/H2<br/>A1"]
+      G["LangGraph 编排器<br/>状态机·重试·H1/H2<br/>每步超时 MRF-4001<br/>A1"]
       MCP["/mcp 工具服务<br/>FastMCP<br/>A1 框架"]
     end
 
@@ -44,7 +45,7 @@ flowchart LR
 
     UI --> R
     CLI --> Q
-    R --> Q --> G
+    R --> GD --> Q --> G
     G --> C & D & RT & RB & RUN & RP
     C & D & RT & RB --> LLM
     C & D & RB & RUN & RP -->|MCP| MCP
@@ -57,6 +58,53 @@ flowchart LR
     MON --> DB
     MON -->|PSI 超阈值| G
 ```
+
+上传的代码、压缩包内的文本文件、表单字段和审核意见，都要先经过输入防护，才会进入任何 LLM 提示词。报错只给出文件名、类型和行号，不回显匹配到的内容（`mrf.core.guards`，规则在 `config/pipeline.yaml: guards`）。
+
+## Azure 部署（swedencentral，Azure for Students）
+
+```mermaid
+flowchart LR
+    DEV[开发者] -->|PR| GH[GitHub Actions<br/>ci: ruff·mypy·pytest·bandit·redocly]
+    GH -->|main 变绿 → cd-dev<br/>OIDC 登录，无密钥| ACR[(ACR<br/>mrf-api / mrf-ui 镜像)]
+
+    subgraph SHARED[rg-mrf-a-shared]
+      ACR
+      AOAI[(Azure OpenAI<br/>gpt-5-mini)]
+      COS[(Cosmos DB 免费层<br/>mrf-dev / mrf-demo)]
+    end
+
+    subgraph ENV["rg-mrf-a-dev / rg-mrf-a-demo"]
+      UIA[mrf-ui<br/>Streamlit :8501]
+      APIA["mrf-api<br/>FastAPI :8000，单副本"]
+      JOB[mrf-monitor<br/>定时任务（每小时）]
+      KV[(Key Vault<br/>API key)]
+      FS[(Azure Files /data<br/>blob·报告·mlruns)]
+      AI[(App Insights<br/>日志·trace)]
+    end
+
+    USER[评审 / 验证人员] -->|API key 登录| UIA -->|X-API-Key| APIA
+    JOB -->|POST /monitoring/runs| APIA
+    APIA -->|托管身份| AOAI
+    APIA -->|托管身份·数据面 RBAC| COS
+    APIA --> FS
+    APIA -->|托管身份| KV
+    APIA --> AI
+    ACR --> APIA & UIA
+```
+
+- 所有 Azure 访问都走用户分配的托管身份（`AZURE_CLIENT_ID`），代码和镜像里没有云密钥。只有 API key 存在 Key Vault 里。
+- `mrf-api` 固定单副本，因为任务队列在进程内。容器重启后，停在 H1/H2 的流水线会从存储的状态恢复。
+- `GET /readyz` 返回 `runtime`（环境、存储后端、LLM 提供方和模型、防护开关），不重新登录也能从外部核对部署配置。
+
+## 实现状态（11/11）
+
+| 模块 | 实现 | 负责人 |
+| --- | --- | --- |
+| 识别、编排、API、MCP 框架、输入防护、评估脚本 | 真实（Azure OpenAI） | A1 |
+| 说明书、评级、分析/验证报告、指标 | 真实，提示词待真实 LLM 校准 | A3 |
+| 数据质量、监控注册、漂移批处理、监控报告、UI、Azure | 真实 | A4 |
+| 重建、可用性运行、`profile_data`、`run_sandbox` / `run_parity` | **stub**，待交付 | A2 |
 
 ## 流水线状态机
 
@@ -90,7 +138,7 @@ stateDiagram-v2
 ## 关键约定
 
 | 主题 | 约定 | 位置 |
-|---|---|---|
+| --- | --- | --- |
 | 响应 | 统一信封，`status` ∈ success/accepted/error，`errors`/`warnings` 恒为数组 | `mrf.core.envelope` |
 | 返回码 | MRF-0000 … MRF-5000 | `mrf.core.codes` |
 | 状态 | 13 个状态 + 允许的迁移表 | `mrf.core.states` |

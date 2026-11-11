@@ -15,8 +15,34 @@ cp .env.example .env                     # 默认 MRF_LLM_PROVIDER=mock，不需
 uv run pytest                            # 单元测试（模拟 LLM）
 uv run uvicorn mrf.api.app:app --reload  # http://localhost:8000/docs ，健康检查 /healthz
 uv run python -m mrf.run --model M001 --auto-approve   # 本地用 stub 跑完整流水线
+uv run --extra ui streamlit run src/mrf/ui/app.py      # 界面 http://localhost:8501（连接本地 API）
 uv run pre-commit install                # 一次即可
 ```
+
+真实 LLM：在 `.env` 里设 `MRF_LLM_PROVIDER`（`azure_openai` / `openai` / `github_models`）和对应的 endpoint 或 key，见 `.env.example`。
+
+## 云端环境
+
+| 环境 | 用途 | 部署方式 |
+| --- | --- | --- |
+| dev | 集成测试、评估 | 合并进 main 且 CI 变绿后，`cd-dev` 自动构建并部署 |
+| demo | 评审演示，11/13 冻结 | 手动触发 `cd-demo`，使用 dev 上验证过的同一镜像 |
+
+两个环境都运行在 Azure Container Apps（API + Streamlit UI + 每小时一次的监控任务）上，LLM 是 Azure OpenAI gpt-5-mini，数据存 Cosmos DB，全部通过托管身份访问。地址和 API key 请私下向 A4 索取，不要贴进 issue 或代码。部署细节见 [infra/README.md](infra/README.md) 和 [docs/architecture.md](docs/architecture.md#azure-部署swedencentralazure-for-students)。
+
+```bash
+curl -s <API>/readyz                     # runtime 字段：存储后端、LLM 模型、防护开关
+MRF_EVAL_API_KEY=<key> uv run python scripts/evaluate.py --api <API> --runs 5 --write   # 端到端评估 → docs/evaluation.md
+```
+
+## 安全措施
+
+- **输入防护**：上传的代码、压缩包内容、表单字段和审核意见都会检查个人数据（卡号、IBAN、NINO、PPSN，数据文件里的邮箱，MRF-1004）和提示词注入（包括评级操纵，MRF-1005）。报错不回显匹配到的内容。
+- **人工关卡**：说明书（H1）和验证结论（H2）必须由人批准，审批人记录在 `X-Operator`。
+- **数字可追溯**：报告中的每个数字都来自指标工具并经过复核，不由 LLM 生成。
+- **限时**：每一步都有时限（`config/pipeline.yaml: timeouts`），超时转人工审核（MRF-4001）。
+
+详见 [docs/responsible_ai.md](docs/responsible_ai.md)。
 
 ## 仓库结构
 
@@ -63,4 +89,4 @@ data/                      本地数据（git 忽略）
 
 ## AI 工具声明
 
-本仓库在开发过程中使用了 AI 编程助手（Claude Code）辅助生成骨架与文档，所有内容均经队员审阅。完整声明在提交前补充于 `docs/ai_disclosure.md`（A1）。
+开发过程中使用了 AI 编程助手（Claude Code）辅助编写代码和文档，所有内容都经过负责人审阅。每位成员的使用范围见 [docs/ai_tools_declaration.md](docs/ai_tools_declaration.md)。运行时用到的 LLM（Azure OpenAI）及其边界见 [docs/responsible_ai.md](docs/responsible_ai.md)。
