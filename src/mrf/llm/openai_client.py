@@ -31,6 +31,20 @@ def _retry_after(exc: openai.APIStatusError) -> float | None:
         return None
 
 
+_REASONING_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def is_reasoning_model(model: str) -> bool:
+    """GPT-5 / o-series reject ``temperature`` (only the default is allowed) and ``max_tokens``
+    (they take ``max_completion_tokens``). Detected from the model / Azure deployment name - name Azure
+    deployments after the model (e.g. ``gpt-5-mini``) - or forced with MRF_LLM_REASONING=true|false."""
+    forced = os.environ.get("MRF_LLM_REASONING", "auto").strip().lower()
+    if forced in {"true", "false"}:
+        return forced == "true"
+    name = model.lower().rsplit("/", 1)[-1]
+    return name.startswith(_REASONING_PREFIXES) and "-chat" not in name
+
+
 def resolve_json_mode(provider: str, base_url: str | None, configured: str) -> str:
     """``json_schema`` (strict structured output) only where it is supported: Azure OpenAI and api.openai.com.
     Other OpenAI-compatible endpoints (DeepSeek, GitHub Models, local servers) get ``json_object`` + the schema
@@ -102,10 +116,13 @@ class OpenAICompatLLM(BaseLLM):
         temperature: float,
         max_tokens: int | None,
     ) -> RawCompletion:
-        kwargs: dict[str, Any] = {"model": model, "temperature": temperature}
+        reasoning = is_reasoning_model(model)
+        kwargs: dict[str, Any] = {"model": model}
+        if not reasoning:
+            kwargs["temperature"] = temperature
         sent = [m.to_openai() for m in messages]
         if max_tokens:
-            kwargs["max_tokens"] = max_tokens
+            kwargs["max_completion_tokens" if reasoning else "max_tokens"] = max_tokens
         if tools:
             kwargs["tools"] = tools
         elif json_schema is not None and self.json_mode == "json_schema":

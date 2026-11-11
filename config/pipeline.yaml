@@ -8,6 +8,7 @@ llm:
     default: { prompt: 0.00014, completion: 0.00055 }
     gpt-4o-mini: { prompt: 0.00014, completion: 0.00055 }
     gpt-4o: { prompt: 0.0023, completion: 0.0092 }
+    gpt-5-mini: { prompt: 0.00022, completion: 0.0017 }   # ~USD 0.25 / 2.00 per 1M tokens; confirm on Azure pricing
   # role -> model override (falls back to MRF_LLM_MODEL; 'rater' also honours MRF_LLM_REVIEWER_MODEL)
   role_models: {}
   max_retry_after_s: 8
