@@ -16,7 +16,8 @@ curl -s localhost:8000/readyz
 curl -s -H "X-API-Key: $MRF_API_KEY" localhost:8000/api/v1/models
 ```
 
-Building on an Apple-silicon Mac for Azure: add `--platform linux/amd64` (CD uses `az acr build`, which avoids this).
+Building on an Apple-silicon Mac for Azure: add `--platform linux/amd64`. CD builds on the GitHub runner and pushes
+to ACR (`az acr build` / ACR Tasks is not allowed on Azure for Students).
 
 Paths inside the container: `/data` (persistent volume: blobs, reports, `mlruns/`) and `/state`
 (local disk: `MRF_SQLITE_PATH`, `MRF_CHECKPOINT_PATH`). SQLite runs in WAL mode, which does not work on
