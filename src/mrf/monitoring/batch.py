@@ -3,6 +3,9 @@
     quality check -> ModelRunner.run(kind="batch") -> PSI/CSI vs the baseline -> MonitoringMetric
     -> amber/red Alert -> on red: trigger_revalidation (pipeline goes back to usability_run)
 
+After the batches of a schedule, a monitoring report (mrf.monitoring.report) is built when new batches were
+processed or the schedule's cron fired since the last report; ``report: true`` in the job payload forces one.
+
 Runs inside the API process as a job (``monitoring_batch`` / ``monitoring_tick``): business data and the job
 queue live there, so a separate container could not see them. The Container Apps Job only calls
 ``POST /api/v1/monitoring/runs`` on a timer.
@@ -12,17 +15,30 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from mrf.contracts.agents import ModelRunner, StepContext
-from mrf.contracts.models import Alert, Dataset, Job, ModelRecord, MonitoringMetric, QualityCheck, Run, Schedule
+from mrf.contracts.models import (
+    Alert,
+    Dataset,
+    Job,
+    ModelRecord,
+    MonitoringMetric,
+    QualityCheck,
+    Report,
+    Run,
+    Schedule,
+)
 from mrf.core import MRFCode, MRFError
 from mrf.core.ids import new_id
 from mrf.jobs import register_handler
+from mrf.monitoring.cron import fired_between
 from mrf.monitoring.drift import classify, compute_psi, pick_features
 from mrf.monitoring.frames import load_frame, run_scores
 from mrf.monitoring.quality import QualityCheckerImpl
 from mrf.monitoring.registrar import TAG_BASELINE_DATASET, TAG_BASELINE_RUN
+from mrf.monitoring.report import generate as generate_report
 from mrf.storage import Collections, get_repo
 
 log = logging.getLogger(__name__)
@@ -157,14 +173,47 @@ async def process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
     return metric
 
 
-async def process_pending(model_id: str | None = None) -> dict[str, Any]:
-    """Every not-yet-processed ``monitoring_batch`` dataset of every enabled schedule (or of one model)."""
+async def report_due(schedule: Schedule, new_batches: bool, now: datetime | None = None) -> bool:
+    """New batches since the last tick, or the schedule's cron fired since the last monitoring report
+    (no report yet: since one hour ago, the timer interval)."""
+    if "monitoring" not in schedule.report_types:
+        return False
+    if new_batches:
+        return True
+    now = now or datetime.now(UTC)
+    last = await get_repo().find(
+        Collections.REPORTS,
+        Report,
+        where={"model_id": schedule.model_id, "type": "monitoring"},
+        page_size=1,
+        order_by="-created_at",
+    )
+    start = last.items[0].created_at if last.items else now - timedelta(hours=1)
+    try:
+        return fired_between(schedule.cron, start, now)
+    except ValueError as exc:
+        log.warning("monitoring: bad cron %r for %s: %s", schedule.cron, schedule.model_id, exc)
+        return False
+
+
+async def _report(summary: dict[str, Any], model_id: str) -> None:
+    try:
+        report = await generate_report(model_id)
+    except MRFError as exc:
+        summary["failed"].append({"report_for": model_id, "code": exc.code.value, "message": exc.message})
+        return
+    summary["reports"].append({"model_id": model_id, "report_id": report.report_id, "status": report.rag_status})
+
+
+async def process_pending(model_id: str | None = None, force_report: bool = False) -> dict[str, Any]:
+    """Every not-yet-processed ``monitoring_batch`` dataset of every enabled schedule (or of one model), then the
+    monitoring reports that are due (or, with ``force_report``, one per schedule)."""
     repo = get_repo()
     where: dict[str, Any] = {"enabled": True}
     if model_id:
         where["model_id"] = model_id
     schedules = await repo.find(Collections.SCHEDULES, Schedule, where=where, page_size=1000, order_by="model_id")
-    summary: dict[str, Any] = {"models": [], "processed": [], "rejected": [], "failed": []}
+    summary: dict[str, Any] = {"models": [], "processed": [], "rejected": [], "failed": [], "reports": []}
     for sched in schedules.items:
         summary["models"].append(sched.model_id)
         batches = await repo.find(
@@ -174,9 +223,11 @@ async def process_pending(model_id: str | None = None) -> dict[str, Any]:
             page_size=1000,
             order_by="created_at",
         )
+        new_batches = False
         for ds in batches.items:
             if await repo.get_or_none(Collections.METRICS, metric_key(sched.model_id, ds.dataset_id), MonitoringMetric):
                 continue
+            new_batches = True  # a rejected batch is recorded too and belongs in the report
             try:
                 metric = await process_batch(sched.model_id, ds.dataset_id)
             except MRFError as exc:
@@ -184,15 +235,25 @@ async def process_pending(model_id: str | None = None) -> dict[str, Any]:
                 summary[bucket].append({"batch_id": ds.dataset_id, "code": exc.code.value, "message": exc.message})
                 continue
             summary["processed"].append({"batch_id": ds.dataset_id, "status": metric.status})
+        if (force_report and "monitoring" in sched.report_types) or await report_due(sched, new_batches):
+            await _report(summary, sched.model_id)
     return summary
 
 
 @register_handler("monitoring_batch")
 async def run_monitoring_batch(job: Job) -> dict[str, Any]:
     metric = await process_batch(job.payload["model_id"], job.payload["dataset_id"])
-    return {"batch_id": metric.batch_id, "status": metric.status, "psi": metric.psi}
+    result: dict[str, Any] = {"batch_id": metric.batch_id, "status": metric.status, "psi": metric.psi}
+    if job.payload.get("report"):
+        report = await generate_report(metric.model_id)
+        result["report_id"] = report.report_id
+    return result
 
 
 @register_handler("monitoring_tick")
 async def run_monitoring_tick(job: Job) -> dict[str, Any]:
-    return await process_pending(job.payload.get("model_id"))
+    model_id, force = job.payload.get("model_id"), bool(job.payload.get("report"))
+    summary = await process_pending(model_id, force_report=force)
+    if force and model_id and not any(r["model_id"] == model_id for r in summary["reports"]):
+        await _report(summary, model_id)  # no enabled schedule (model not deployed yet): report on request anyway
+    return summary

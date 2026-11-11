@@ -1,0 +1,125 @@
+{#- Owner: A4. Monitoring report: drift of production batches against the baseline.
+    Same rule as A3's reports: never print a raw number - use num(key, spec); ids, dates and quoted alert
+    messages go inside <span class="meta">. The SVG chart is drawn from the same facts by mrf.monitoring.report. -#}
+{% import "_report_macros.html.j2" as m with context %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Monitoring report - {{ model.name }}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:1040px;margin:28px auto;padding:0 22px;color:#1d2433;line-height:1.45}
+h1{font-size:1.55em;margin-bottom:4px}h2{font-size:1.15em;margin-top:1.7em;border-bottom:1px solid #d5dae3;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d5dae3;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-weight:600;font-size:.85em}
+.green{background:#d7f2df;color:#135c2b}.amber{background:#fdebc8;color:#7a4b00}.red{background:#f9d4d2;color:#8a1c14}.na{background:#e6e8ee;color:#4a5263}
+.overall{font-size:1.1em;margin:14px 0}.box{border:1px solid #c2c9d6;border-radius:6px;padding:10px 14px;background:#f8f9fb}
+.num{font-variant-numeric:tabular-nums}.chart{width:100%;height:auto;margin:6px 0}
+.legend span{display:inline-block;margin-right:16px}.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+<h1>Monitoring report</h1>
+<p class="muted"><span class="meta">{{ model.name }} · model {{ model.model_id }} · report {{ report_id }} · generated {{ generated_at }}</span></p>
+<div class="overall">Overall status (latest batch): {{ m.badge(view.overall) }}</div>
+<div class="box">
+  Batches monitored: {{ num("summary.batches", "d") }} &nbsp;·&nbsp;
+  green {{ num("summary.green", "d") }}, amber {{ num("summary.amber", "d") }}, red {{ num("summary.red", "d") }}
+  &nbsp;·&nbsp; open alerts {{ num("summary.alerts_open", "d") }}
+  {% if view.schedule %}&nbsp;·&nbsp; schedule <span class="meta">{{ view.schedule.cron }}</span> UTC
+  ({{ "enabled" if view.schedule.enabled else "paused" }}){% endif %}
+</div>
+
+{{ m.notes("Findings", view.findings) }}
+
+{% if view.latest %}
+{% set i = view.latest.i %}
+<h2>Latest batch</h2>
+<table>
+  <tr><th>Batch</th><th>Processed</th><th>Status</th><th>Rows</th><th>Score PSI</th><th>Largest feature PSI</th><th>Gini</th><th>Baseline Gini</th><th>Gini drop</th></tr>
+  <tr>
+    <td><span class="meta">{{ view.latest.batch_id }}</span></td>
+    <td><span class="meta">{{ view.latest.at }}</span></td>
+    <td>{{ m.badge(view.latest.status) }}</td>
+    <td>{{ num("batch." ~ i ~ ".rows", "d") }}</td>
+    <td>{{ num("batch." ~ i ~ ".psi_score") }}</td>
+    <td>{{ num("batch." ~ i ~ ".max_feature_psi") }}{% if view.latest.worst %} (<span class="meta">{{ view.latest.worst }}</span>){% endif %}</td>
+    <td>{{ num("batch." ~ i ~ ".gini") }}</td>
+    <td>{{ num("baseline.gini") }}</td>
+    <td>{{ num("latest.gini_drop") }}</td>
+  </tr>
+</table>
+
+<h2>Most drifted features in the latest batch</h2>
+{% if view.top_features %}
+<table>
+  <tr><th>Feature</th><th>Status</th><th>PSI (CSI)</th><th>Missing rate</th></tr>
+  {% for f in view.top_features %}
+  <tr>
+    <td><span class="meta">{{ f.name }}</span></td>
+    <td>{{ m.badge(f.status) }}</td>
+    <td>{{ num("latest.feature." ~ f.name ~ ".psi") }}</td>
+    <td>{{ num("latest.feature." ~ f.name ~ ".missing", ".1%") }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No feature drift was measured for this batch.</p>
+{% endif %}
+
+<h2>Trend over all batches</h2>
+{{ chart }}
+<p class="legend muted"><span><i style="background:#1d4e89"></i>score PSI</span><span><i style="background:#7a7f8c"></i>largest feature PSI</span>
+  <span>dashed lines: amber and red thresholds; squares: batch status</span></p>
+<table>
+  <tr><th>Chart label</th><th>Batch</th><th>Processed</th><th>Status</th><th>Rows</th><th>Score PSI</th><th>Largest feature PSI</th><th>Gini</th><th>Largest missing rate</th></tr>
+  {% for b in view.batches | reverse %}
+  <tr>
+    <td><span class="meta">B{{ b.i + 1 }}</span></td>
+    <td><span class="meta">{{ b.batch_id }}</span></td>
+    <td><span class="meta">{{ b.at }}</span></td>
+    <td>{{ m.badge(b.status) }}</td>
+    <td>{{ num("batch." ~ b.i ~ ".rows", "d") }}</td>
+    <td>{{ num("batch." ~ b.i ~ ".psi_score") }}</td>
+    <td>{{ num("batch." ~ b.i ~ ".max_feature_psi") }}{% if b.worst %} (<span class="meta">{{ b.worst }}</span>){% endif %}</td>
+    <td>{{ num("batch." ~ b.i ~ ".gini") }}</td>
+    <td>{{ num("batch." ~ b.i ~ ".max_missing", ".1%") }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Alerts</h2>
+{% if view.alerts %}
+<table>
+  <tr><th>Raised</th><th>Severity</th><th>Kind</th><th>Message (as recorded)</th><th>Acknowledged</th></tr>
+  {% for a in view.alerts %}
+  <tr>
+    <td><span class="meta">{{ a.at }}</span></td>
+    <td>{{ m.badge(a.severity) }}</td>
+    <td>{{ a.kind | replace("_", " ") }}</td>
+    <td><span class="meta">{{ a.message }}</span></td>
+    <td>{{ "yes" if a.acknowledged else "no" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>No alerts.</p>
+{% endif %}
+
+<h2>Thresholds</h2>
+<table>
+  <tr><th>Rule</th><th>Value</th></tr>
+  <tr><td>Population stability index: amber from</td><td>{{ num("thresholds.psi_amber", ".2f") }}</td></tr>
+  <tr><td>Population stability index: red above</td><td>{{ num("thresholds.psi_red", ".2f") }}</td></tr>
+  <tr><td>Gini drop against the baseline: red above</td><td>{{ num("thresholds.gini_drop_red", ".2f") }}</td></tr>
+  <tr><td>Missing rate in any column: amber from</td><td>{{ num("thresholds.missing_rate_amber", ".1%") }}</td></tr>
+  <tr><td>Missing rate in any column: red from</td><td>{{ num("thresholds.missing_rate_red", ".1%") }}</td></tr>
+</table>
+
+<p class="muted">Every number in this report is rendered from a recorded source (monitoring metrics of each batch,
+the baseline run, alerts or config/pipeline.yaml) and re-checked after rendering; the report is not stored if any
+number is untraceable or differs from its source. The source of each number is listed in the report summary
+returned by the API.</p>
+</body>
+</html>

@@ -71,6 +71,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ vars.ACR_NAME }}.azurecr.io/mrf-ui:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=ui
+          cache-to: type=gha,mode=max,scope=ui
 
       - name: Remember the running API image (empty = dev not deployed yet)
         id: prev

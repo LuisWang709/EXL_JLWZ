@@ -22,3 +22,14 @@ to ACR (`az acr build` / ACR Tasks is not allowed on Azure for Students).
 Paths inside the container: `/data` (persistent volume: blobs, reports, `mlruns/`) and `/state`
 (local disk: `MRF_SQLITE_PATH`, `MRF_CHECKPOINT_PATH`). SQLite runs in WAL mode, which does not work on
 network file systems, so `/state` must not be an Azure Files share.
+
+## UI image
+
+`docker/Dockerfile.ui` - Streamlit (`src/mrf/ui`), port 8501, talks only to the API:
+
+```bash
+docker build -f docker/Dockerfile.ui -t mrf-ui:local .
+docker run --rm -p 8501:8501 -e API_BASE_URL=http://host.docker.internal:8000 mrf-ui:local
+```
+
+Without `MRF_API_KEY` in the container the sign-in page also asks for the API URL; with it, only for the key.
