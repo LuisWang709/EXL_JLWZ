@@ -71,7 +71,16 @@ async def readyz(request: Request) -> dict[str, object] | JSONResponse:
         "llm_config": _check_llm_config(),
     }
     ready = all(v == "ok" for v in checks.values())
-    data = {"ready": ready, "checks": checks}
+    settings = get_settings()
+    # non-secret runtime facts, so a deployment can be verified from outside (which backend / model is live)
+    runtime = {
+        "env": settings.env,
+        "storage_backend": settings.storage_backend,
+        "llm_provider": settings.llm_provider,
+        "llm_model": settings.llm_model,
+        "guards_enabled": settings.guards_enabled,
+    }
+    data = {"ready": ready, "checks": checks, "runtime": runtime}
     if ready:
         return success(request.state.request_id, data).model_dump(mode="json")
     env = error(request.state.request_id, MRFCode.INTERNAL, message="Service not ready", data=data)

@@ -102,9 +102,21 @@ class BackoffPolicy:
         return planned
 
 
+def _rate(model: str, table: dict[str, Any]) -> dict[str, float]:
+    """Exact name, else the longest table key the name starts with: APIs return dated snapshot names
+    (Azure: ``gpt-5-mini-2025-08-07``) that must still be billed as ``gpt-5-mini``, not as ``default``."""
+    name = (model or "").lower().rsplit("/", 1)[-1]
+    if name in table:
+        return dict(table[name])
+    prefixes = [k for k in table if k != "default" and name.startswith(k.lower())]
+    if prefixes:
+        return dict(table[max(prefixes, key=len)])
+    return dict(table.get("default") or {"prompt": 0.0, "completion": 0.0})
+
+
 def _price(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     table = get_policy().get("llm", {}).get("pricing_eur_per_1k", {})
-    rate = table.get(model) or table.get("default") or {"prompt": 0.0, "completion": 0.0}
+    rate = _rate(model, table)
     return round(prompt_tokens / 1000 * rate["prompt"] + completion_tokens / 1000 * rate["completion"], 6)
 
 

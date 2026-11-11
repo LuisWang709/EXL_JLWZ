@@ -178,3 +178,18 @@ def test_reasoning_detection_can_be_forced(monkeypatch: pytest.MonkeyPatch) -> N
     assert is_reasoning_model("my-deployment")
     monkeypatch.setenv("MRF_LLM_REASONING", "false")
     assert not is_reasoning_model("gpt-5-mini")
+
+
+def test_price_matches_dated_snapshot_names() -> None:
+    from mrf.llm.base import _rate
+
+    table = {
+        "default": {"prompt": 0.1, "completion": 0.2},
+        "gpt-4o": {"prompt": 1.0, "completion": 2.0},
+        "gpt-4o-mini": {"prompt": 3.0, "completion": 4.0},
+        "gpt-5-mini": {"prompt": 5.0, "completion": 6.0},
+    }
+    assert _rate("gpt-5-mini-2025-08-07", table)["prompt"] == 5.0  # Azure returns the snapshot name
+    assert _rate("gpt-4o-mini-2024-07-18", table)["prompt"] == 3.0  # longest prefix wins over gpt-4o
+    assert _rate("gpt-4o", table)["prompt"] == 1.0
+    assert _rate("deepseek-chat", table)["prompt"] == 0.1

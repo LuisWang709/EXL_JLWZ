@@ -3,17 +3,22 @@
     # dry run (mock LLM, whatever agents are on main) - checks the harness, numbers are NOT reportable
     uv run python scripts/evaluate.py --runs 2
 
-    # the real evaluation, with the demo LLM configuration (same env vars as the deployment)
+    # against a deployed API (dev / demo) - H1/H2 are approved through POST /reviews/{id}/decision
+    MRF_EVAL_API_KEY=<key> uv run python scripts/evaluate.py --api https://<app>.azurecontainerapps.io --runs 5 --write
+
+    # locally with a real LLM (same env vars as the deployment)
     MRF_LLM_PROVIDER=azure_openai MRF_LLM_MODEL=<deployment> AZURE_OPENAI_ENDPOINT=... AZURE_OPENAI_API_KEY=... \
         uv run python scripts/evaluate.py --runs 5 --dataset <dataset_id> --write
 
-Per run it records: wall time, time per pipeline state (from the transition history), attempts per retry loop,
-LLM calls / tokens / EUR cost / backoff retries (Pipeline.usage), final state, whether it ended in manual review,
-and whether the classifier matched the gold inventory record.
+Per run it records: wall time, agent processing time (wall time minus waiting at H1 / H2 / manual review), time
+per pipeline state (from the transition history), attempts per retry loop, LLM calls / tokens / EUR cost /
+backoff retries (Pipeline.usage), final state, whether it ended in manual review, and whether the classifier
+matched the gold inventory record.
 
 Outputs: ``var/eval/<timestamp>.json`` (raw) and, with ``--write``, ``docs/evaluation.md``. Each output says
-which LLM provider and which agent implementations (real vs stub) produced it: numbers from a mock / stub run
-must never be copied into the deck (A3 signs off numbers; see docs/team/A3_handoff.md).
+which LLM and which agent implementations (real vs stub) produced it: numbers from a mock / stub run must never
+be copied into the deck (A3 signs off numbers; see docs/team/A3_handoff.md). In ``--api`` mode stubs are
+detected from the artifacts themselves ("[stub]" documents, rebuilds without code, runs with ``metrics.stub``).
 """
 
 from __future__ import annotations
@@ -37,6 +42,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 CODE_SUFFIXES = (".sas", ".r", ".py", ".ipynb")
+GATE_STATES = {"awaiting_doc_approval", "awaiting_signoff", "manual_review"}
+TERMINAL_STATES = {"monitoring", "manual_review", "failed"}
 
 
 def discover_models(selected: list[str]) -> list[tuple[str, list[Path], dict[str, Any] | None]]:
@@ -69,13 +76,45 @@ def _classification_ok(cls: Any, gold: dict[str, Any] | None) -> bool | None:
 
 
 def _state_durations(history: list[Any]) -> dict[str, float]:
-    """Seconds spent in each state (until the next transition), summed over loops."""
+    """Seconds spent in each state (until the next transition), summed over loops.
+    Accepts StateTransition objects (local) or the JSON dicts the API returns."""
+
+    def state(t: Any) -> str:
+        return str(t["to_state"] if isinstance(t, dict) else t.to_state.value)
+
+    def at(t: Any) -> datetime:
+        return datetime.fromisoformat(t["at"]) if isinstance(t, dict) else t.at
+
     out: dict[str, float] = {}
     for cur, nxt in itertools.pairwise(history):
-        out[cur.to_state.value] = out.get(cur.to_state.value, 0.0) + (nxt.at - cur.at).total_seconds()
+        out[state(cur)] = out.get(state(cur), 0.0) + (at(nxt) - at(cur)).total_seconds()
     return out
 
 
+def _agent_s(state_s: dict[str, float]) -> float:
+    """Processing time only: waiting at the human gates is excluded."""
+    return round(sum(v for k, v in state_s.items() if k not in GATE_STATES), 3)
+
+
+def _row(model_id: str, p: dict[str, Any], wall: float, cls: Any, gold: dict[str, Any] | None) -> dict[str, Any]:
+    state_s = _state_durations(p["history"])
+    return {
+        "model": model_id,
+        "pipeline_id": p["pipeline_id"],
+        "final_state": p["state"],
+        "manual_review": p["state"] == "manual_review",
+        "last_error": p.get("last_error"),
+        "wall_s": round(wall, 3),
+        "agent_s": _agent_s(state_s),
+        "state_s": {k: round(v, 3) for k, v in state_s.items()},
+        "attempts": p.get("attempts") or {},
+        "usage": p["usage"],
+        "classification_ok": _classification_ok(cls, gold),
+        "confidence": cls.confidence if cls else None,
+    }
+
+
+# ------------------------------------------------------------------ local (in-process) mode
 async def run_once(model_id: str, files: list[Path], gold: dict[str, Any] | None, datasets: list[str]) -> dict:
     from mrf import jobs, storage
     from mrf.contracts.models import ModelRecord, Pipeline
@@ -94,27 +133,91 @@ async def run_once(model_id: str, files: list[Path], gold: dict[str, Any] | None
         model_name=model_id, files=[UploadedFile(p.name, p.read_bytes()) for p in files], dataset_ids=datasets
     )
     job, _ = await executor.submit("pipeline", {"pipeline_id": pipeline.pipeline_id}, payload={"auto_approve": True})
-    job = await executor.run_now(job.job_id)
+    await executor.run_now(job.job_id)
     wall = time.perf_counter() - t0
 
     repo = get_repo()
     p = await repo.get(Collections.PIPELINES, pipeline.pipeline_id, Pipeline)
     m = await repo.get(Collections.MODELS, model.model_id, ModelRecord)
     await service.close_orchestrator()
-    return {
-        "model": model_id,
-        "final_state": p.state.value,
-        "manual_review": p.state.value == "manual_review",
-        "last_error": p.last_error,
-        "wall_s": round(wall, 3),
-        "state_s": {k: round(v, 3) for k, v in _state_durations(p.history).items()},
-        "attempts": p.attempts,
-        "usage": p.usage.model_dump(),
-        "classification_ok": _classification_ok(m.classification, gold),
-        "confidence": m.classification.confidence if m.classification else None,
-    }
+    return _row(model_id, p.model_dump(mode="json"), wall, m.classification, gold) | {"stubs_seen": []}
 
 
+# ------------------------------------------------------------------ deployed API mode
+class ApiClient:
+    def __init__(self, base: str, key: str) -> None:
+        import httpx
+
+        self.http = httpx.Client(
+            base_url=base.rstrip("/"),
+            headers={"X-API-Key": key, "X-Operator": "evaluation-harness"},
+            timeout=120,
+        )
+
+    def get(self, path: str, **params: Any) -> dict[str, Any]:
+        data: dict[str, Any] = self.http.get(path, params=params or None).json()
+        return data
+
+    def post(self, path: str, **kwargs: Any) -> dict[str, Any]:
+        data: dict[str, Any] = self.http.post(path, **kwargs).json()
+        return data
+
+
+def _detect_stubs(api: ApiClient, p: dict[str, Any]) -> list[str]:
+    mid, arts, stubs = p["model_id"], p.get("artifacts") or {}, []
+    if arts.get("doc_id"):
+        doc = api.get(f"/api/v1/models/{mid}/documents/{arts['doc_id']}")
+        if doc.get("status") != "success" or "[stub]" in str((doc.get("data") or {}).get("content_md", "")):
+            stubs.append("doc_writer")
+    if arts.get("rebuild_id"):
+        rb = api.get(f"/api/v1/models/{mid}/rebuilds/{arts['rebuild_id']}").get("data") or {}
+        if not rb.get("code"):
+            stubs.append("rebuilder")
+    for run_id in arts.get("run_ids") or []:
+        run = api.get(f"/api/v1/models/{mid}/runs/{run_id}").get("data") or {}
+        if (run.get("metrics") or {}).get("stub"):
+            stubs.append("runner")
+            break
+    return stubs
+
+
+async def run_once_api(
+    api: ApiClient, model_id: str, files: list[Path], gold: dict[str, Any] | None, datasets: list[str]
+) -> dict[str, Any]:
+    from mrf.contracts.models import ClassificationResult
+
+    t0 = time.perf_counter()
+    started = api.post(
+        "/api/v1/pipelines",
+        data={"model_name": model_id, "dataset_ids": datasets},
+        files=[("files", (f.name, f.read_bytes(), "text/plain")) for f in files],
+    )
+    if started.get("status") != "accepted":
+        raise SystemExit(f"[eval] upload rejected: {started.get('code')} {started.get('message')}")
+    pid = started["data"]["pipeline_id"]
+    approvals, deadline = 0, time.monotonic() + 3600
+    while time.monotonic() < deadline:
+        p = api.get(f"/api/v1/pipelines/{pid}")["data"]
+        if p["state"] in TERMINAL_STATES:
+            break
+        if p["state"] in {"awaiting_doc_approval", "awaiting_signoff"}:
+            pending = api.get("/api/v1/reviews", status="pending", page_size=100)["data"]["items"]
+            mine = [r for r in pending if r["pipeline_id"] == pid]
+            if mine:
+                api.post(
+                    f"/api/v1/reviews/{mine[0]['review_id']}/decision",
+                    json={"decision": "approve", "comment": "evaluation harness"},
+                )
+                approvals += 1
+        await asyncio.sleep(3)
+    wall = time.perf_counter() - t0
+    p = api.get(f"/api/v1/pipelines/{pid}")["data"]
+    model = api.get(f"/api/v1/models/{p['model_id']}")["data"]
+    cls = ClassificationResult.model_validate(model["classification"]) if model.get("classification") else None
+    return _row(model_id, p, wall, cls, gold) | {"stubs_seen": _detect_stubs(api, p), "approvals": approvals}
+
+
+# ------------------------------------------------------------------ report
 def summarise(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for model in sorted({r["model"] for r in runs}):
@@ -132,6 +235,7 @@ def summarise(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "manual_review": sum(r["manual_review"] for r in rs),
                 "classification_accuracy": round(sum(cls) / len(cls), 3) if cls else None,
                 "median_wall_s": med([r["wall_s"] for r in rs]),
+                "median_agent_s": med([r["agent_s"] for r in rs]),
                 "median_doc_attempts": med([r["attempts"].get("doc", 0) for r in rs]),
                 "median_parity_attempts": med([r["attempts"].get("parity", 0) for r in rs]),
                 "median_llm_calls": med([r["usage"]["llm_calls"] for r in rs]),
@@ -144,25 +248,26 @@ def summarise(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def to_markdown(meta: dict[str, Any], rows: list[dict[str, Any]]) -> str:
-    reportable = meta["llm_provider"] != "mock" and not meta["stub_agents"]
+    reportable = meta["llm_provider"] not in {"mock", "unknown"} and not meta["stub_agents"]
     lines = [
         "# 评估结果 / Evaluation",
         "",
-        f"生成时间 {meta['generated_at']} · LLM `{meta['llm_provider']}` / `{meta['llm_model']}` · "
+        f"生成时间 {meta['generated_at']} · 目标 `{meta['target']}` · "
+        f"LLM `{meta['llm_provider']}` / `{meta['llm_model']}` · "
         f"每个模型 {meta['runs_per_model']} 次 · commit `{meta['commit']}`",
         "",
     ]
     if not reportable:
         lines += [
-            "> **不可用于报告**：本次使用了 mock LLM 或 stub 智能体"
+            "> **不可用于报告**：本次使用了 mock / 未知 LLM 或 stub 智能体"
             f"（stub：{', '.join(meta['stub_agents']) or '无'}）。只验证评估脚本本身，数字不得进入 PPT。",
             "",
         ]
     lines += [
-        "由 `scripts/evaluate.py` 生成，原始数据见 `" + meta["raw_file"] + "`。H1/H2 在评估中自动批准，"
-        "所以耗时只含智能体处理时间，不含人工等待。",
+        "由 `scripts/evaluate.py` 生成，原始数据见 `" + meta["raw_file"] + "`。H1/H2 在评估中自动批准；"
+        "“智能体耗时”不含在人工关卡的等待时间。",
         "",
-        "| 模型 | 次数 | 到达监控 | 转人工 | 识别准确率 | 耗时中位数 (s) | 说明书尝试 | 一致性尝试 "
+        "| 模型 | 次数 | 到达监控 | 转人工 | 识别准确率 | 智能体耗时中位数 (s) | 说明书尝试 | 一致性尝试 "
         "| LLM 调用 | tokens | 费用 (EUR) | 退让次数 |",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
@@ -170,7 +275,7 @@ def to_markdown(meta: dict[str, Any], rows: list[dict[str, Any]]) -> str:
         acc = "—" if r["classification_accuracy"] is None else f"{r['classification_accuracy']:.0%}"
         lines.append(
             f"| {r['model']} | {r['runs']} | {r['reached_monitoring']} | {r['manual_review']} | {acc} "
-            f"| {r['median_wall_s']} | {r['median_doc_attempts']} | {r['median_parity_attempts']} "
+            f"| {r['median_agent_s']} | {r['median_doc_attempts']} | {r['median_parity_attempts']} "
             f"| {r['median_llm_calls']} | {r['median_tokens']:.0f} | {r['median_cost_eur']} | {r['backoff_retries']} |"
         )
     lines += ["", f"智能体实现：`{json.dumps(meta['agents'])}`", ""]
@@ -195,16 +300,30 @@ async def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--model", action="append", default=[], help="M001 ... (default: all)")
     ap.add_argument("--dataset", action="append", default=[], help="registered dataset id for the usability run")
+    ap.add_argument("--api", help="base URL of a deployed API (key from MRF_EVAL_API_KEY)")
     ap.add_argument("--write", action="store_true", help="also write docs/evaluation.md")
     args = ap.parse_args(argv)
 
-    from mrf.config import get_settings
-    from mrf.orchestrator.registry import Registry
+    api: ApiClient | None = None
+    stubs: set[str] = set()
+    if args.api:
+        key = os.environ.get("MRF_EVAL_API_KEY")
+        if not key:
+            print("set MRF_EVAL_API_KEY", file=sys.stderr)
+            return 2
+        api = ApiClient(args.api, key)
+        runtime = (api.get("/readyz").get("data") or {}).get("runtime") or {}
+        agents: dict[str, str] = {"remote": "stubs detected from artifacts (stubs_seen per run)"}
+        llm_provider = str(runtime.get("llm_provider", "unknown"))
+        llm_model = str(runtime.get("llm_model", "unknown"))
+    else:
+        from mrf.config import get_settings
+        from mrf.orchestrator.registry import Registry
 
-    registry = Registry.discover()
-    agents = registry.describe()
-    stubs = sorted(k for k, v in agents.items() if v.startswith("Stub"))
-    settings = get_settings()
+        agents = Registry.discover().describe()
+        stubs = {k for k, v in agents.items() if v.startswith("Stub")}
+        llm_provider, llm_model = get_settings().llm_provider, get_settings().llm_model
+
     models = discover_models(args.model)
     if not models:
         print("no models found", file=sys.stderr)
@@ -213,26 +332,30 @@ async def main(argv: list[str] | None = None) -> int:
     runs: list[dict[str, Any]] = []
     for model_id, files, gold in models:
         for i in range(args.runs):
-            r = await run_once(model_id, files, gold, args.dataset)
+            if api is not None:
+                r = await run_once_api(api, model_id, files, gold, args.dataset)
+            else:
+                r = await run_once(model_id, files, gold, args.dataset)
+            stubs |= set(r["stubs_seen"])
             runs.append(r)
             print(
-                f"[eval] {model_id} run {i + 1}/{args.runs}: {r['final_state']} "
-                f"{r['wall_s']}s attempts={r['attempts']} calls={r['usage']['llm_calls']}"
+                f"[eval] {model_id} run {i + 1}/{args.runs}: {r['final_state']} agent={r['agent_s']}s "
+                f"attempts={r['attempts']} calls={r['usage']['llm_calls']} stubs={r['stubs_seen']}"
             )
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_dir = ROOT / "var" / "eval"
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"{stamp}.json"
-    commit = _git_commit()
     meta = {
         "generated_at": stamp,
-        "llm_provider": settings.llm_provider,
-        "llm_model": settings.llm_model,
+        "target": args.api or "local",
+        "llm_provider": llm_provider,
+        "llm_model": llm_model,
         "runs_per_model": args.runs,
         "agents": agents,
-        "stub_agents": stubs,
-        "commit": commit,
+        "stub_agents": sorted(stubs),
+        "commit": _git_commit(),
         "raw_file": f"var/eval/{raw.name}",
     }
     rows = summarise(runs)
