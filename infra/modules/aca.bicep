@@ -36,10 +36,15 @@ resource sa 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageAccountName
 }
 
-resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
+// environmentMode must be explicit: since late 2026 Azure creates a new environment without it as an
+// "express" environment, which has no Azure Files storage, no jobs and no Key Vault secret references.
+// WorkloadProfiles with only the Consumption profile costs the same as the old consumption-only mode.
+resource acaEnv 'Microsoft.App/managedEnvironments@2026-07-01' = {
   name: 'cae-mrf-${env}'
   location: location
   properties: {
+    environmentMode: 'WorkloadProfiles'
+    workloadProfiles: [ { name: 'Consumption', workloadProfileType: 'Consumption' } ]
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
@@ -50,7 +55,7 @@ resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
-resource dataStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+resource dataStorage 'Microsoft.App/managedEnvironments/storages@2026-07-01' = {
   parent: acaEnv
   name: 'mrfdata'
   properties: {
@@ -92,12 +97,13 @@ var apiEnv = concat(
   extraEnv
 )
 
-resource api 'Microsoft.App/containerApps@2024-03-01' = {
+resource api 'Microsoft.App/containerApps@2026-07-01' = {
   name: 'mrf-api-${env}'
   location: location
   identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
   properties: {
     environmentId: acaEnv.id
+    workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: { external: true, targetPort: 8000, transport: 'auto' }
@@ -132,12 +138,13 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-resource ui 'Microsoft.App/containerApps@2024-03-01' = if (deployUi) {
+resource ui 'Microsoft.App/containerApps@2026-07-01' = if (deployUi) {
   name: 'mrf-ui-${env}'
   location: location
   identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
   properties: {
     environmentId: acaEnv.id
+    workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: { external: true, targetPort: 8501, transport: 'auto', stickySessions: { affinity: 'sticky' } }
@@ -162,12 +169,13 @@ resource ui 'Microsoft.App/containerApps@2024-03-01' = if (deployUi) {
 }
 
 // Timer: knocks on POST /api/v1/monitoring/runs; all computation happens inside the API process.
-resource monitor 'Microsoft.App/jobs@2024-03-01' = {
+resource monitor 'Microsoft.App/jobs@2026-07-01' = {
   name: 'mrf-monitor-${env}'
   location: location
   identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
   properties: {
     environmentId: acaEnv.id
+    workloadProfileName: 'Consumption'
     configuration: {
       triggerType: 'Schedule'
       replicaTimeout: 300
