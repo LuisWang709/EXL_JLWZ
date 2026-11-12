@@ -111,13 +111,14 @@ def _row(model_id: str, p: dict[str, Any], wall: float, cls: Any, gold: dict[str
         "usage": p["usage"],
         "classification_ok": _classification_ok(cls, gold),
         "confidence": cls.confidence if cls else None,
+        "validation_complete": False,
     }
 
 
 # ------------------------------------------------------------------ local (in-process) mode
 async def run_once(model_id: str, files: list[Path], gold: dict[str, Any] | None, datasets: list[str]) -> dict:
     from mrf import jobs, storage
-    from mrf.contracts.models import ModelRecord, Pipeline
+    from mrf.contracts.models import ModelRecord, Pipeline, Run
     from mrf.orchestrator import service
     from mrf.orchestrator.service import UploadedFile, create_pipeline
     from mrf.storage import Collections, get_repo
@@ -139,8 +140,12 @@ async def run_once(model_id: str, files: list[Path], gold: dict[str, Any] | None
     repo = get_repo()
     p = await repo.get(Collections.PIPELINES, pipeline.pipeline_id, Pipeline)
     m = await repo.get(Collections.MODELS, model.model_id, ModelRecord)
+    validated = await repo.find(Collections.RUNS, Run, where={"model_id": model.model_id}, page_size=100)
     await service.close_orchestrator()
-    return _row(model_id, p.model_dump(mode="json"), wall, m.classification, gold) | {"stubs_seen": []}
+    return _row(model_id, p.model_dump(mode="json"), wall, m.classification, gold) | {
+        "stubs_seen": [],
+        "validation_complete": any(r.status == "succeeded" and not r.metrics.get("stub") for r in validated.items),
+    }
 
 
 # ------------------------------------------------------------------ deployed API mode
@@ -155,11 +160,15 @@ class ApiClient:
         )
 
     def get(self, path: str, **params: Any) -> dict[str, Any]:
-        data: dict[str, Any] = self.http.get(path, params=params or None).json()
+        response = self.http.get(path, params=params or None)
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
         return data
 
     def post(self, path: str, **kwargs: Any) -> dict[str, Any]:
-        data: dict[str, Any] = self.http.post(path, **kwargs).json()
+        response = self.http.post(path, **kwargs)
+        response.raise_for_status()
+        data: dict[str, Any] = response.json()
         return data
 
 
@@ -214,7 +223,14 @@ async def run_once_api(
     p = api.get(f"/api/v1/pipelines/{pid}")["data"]
     model = api.get(f"/api/v1/models/{p['model_id']}")["data"]
     cls = ClassificationResult.model_validate(model["classification"]) if model.get("classification") else None
-    return _row(model_id, p, wall, cls, gold) | {"stubs_seen": _detect_stubs(api, p), "approvals": approvals}
+    run_ids = (p.get("artifacts") or {}).get("run_ids") or []
+    validated = [api.get(f"/api/v1/models/{p['model_id']}/runs/{rid}")["data"] for rid in run_ids]
+    return _row(model_id, p, wall, cls, gold) | {
+        "stubs_seen": _detect_stubs(api, p),
+        "approvals": approvals,
+        "validation_complete": any(r.get("status") == "succeeded" and not r.get("metrics", {}).get("stub")
+                                   for r in validated),
+    }
 
 
 # ------------------------------------------------------------------ report
@@ -248,7 +264,11 @@ def summarise(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def to_markdown(meta: dict[str, Any], rows: list[dict[str, Any]]) -> str:
-    reportable = meta["llm_provider"] not in {"mock", "unknown"} and not meta["stub_agents"]
+    reportable = (
+        meta["llm_provider"] not in {"mock", "unknown"}
+        and not meta["stub_agents"]
+        and meta.get("validation_complete", False)
+    )
     lines = [
         "# 评估结果 / Evaluation",
         "",
@@ -259,7 +279,7 @@ def to_markdown(meta: dict[str, Any], rows: list[dict[str, Any]]) -> str:
     ]
     if not reportable:
         lines += [
-            "> **不可用于报告**：本次使用了 mock / 未知 LLM 或 stub 智能体"
+            "> **不可用于报告**：本次使用了 mock / 未知 LLM、stub 智能体，或未完成数据集可用性运行"
             f"（stub：{', '.join(meta['stub_agents']) or '无'}）。只验证评估脚本本身，数字不得进入 PPT。",
             "",
         ]
@@ -302,7 +322,13 @@ async def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dataset", action="append", default=[], help="registered dataset id for the usability run")
     ap.add_argument("--api", help="base URL of a deployed API (key from MRF_EVAL_API_KEY)")
     ap.add_argument("--write", action="store_true", help="also write docs/evaluation.md")
+    ap.add_argument("--report-out", type=Path, help="write markdown to a separate file (e.g. a CI artifact directory)")
+    ap.add_argument("--strict", action="store_true", help="exit 1 if any pipeline fails, escalates or uses stubs")
+    ap.add_argument("--require-real-llm", action="store_true", help="refuse mock/unknown providers before running")
+    ap.add_argument("--out-dir", type=Path, default=ROOT / "var" / "eval", help="raw results directory")
     args = ap.parse_args(argv)
+    if args.runs < 1:
+        ap.error("--runs must be at least 1")
 
     api: ApiClient | None = None
     stubs: set[str] = set()
@@ -324,6 +350,12 @@ async def main(argv: list[str] | None = None) -> int:
         stubs = {k for k, v in agents.items() if v.startswith("Stub")}
         llm_provider, llm_model = get_settings().llm_provider, get_settings().llm_model
 
+    if args.require_real_llm and llm_provider in {"mock", "unknown"}:
+        print("real LLM required; configure the provider before evaluation", file=sys.stderr)
+        if api is not None:
+            api.http.close()
+        return 2
+
     models = discover_models(args.model)
     if not models:
         print("no models found", file=sys.stderr)
@@ -344,7 +376,7 @@ async def main(argv: list[str] | None = None) -> int:
             )
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    out_dir = ROOT / "var" / "eval"
+    out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"{stamp}.json"
     meta = {
@@ -356,7 +388,8 @@ async def main(argv: list[str] | None = None) -> int:
         "agents": agents,
         "stub_agents": sorted(stubs),
         "commit": _git_commit(),
-        "raw_file": f"var/eval/{raw.name}",
+        "raw_file": raw.as_posix(),
+        "validation_complete": all(r["validation_complete"] for r in runs),
     }
     rows = summarise(runs)
     raw.write_text(json.dumps({"meta": meta, "summary": rows, "runs": runs}, indent=2, default=str), "utf-8")
@@ -365,7 +398,13 @@ async def main(argv: list[str] | None = None) -> int:
     if args.write:
         (ROOT / "docs" / "evaluation.md").write_text(md, encoding="utf-8", newline="\n")
         print("[eval] wrote docs/evaluation.md")
-    return 0
+    if args.report_out:
+        args.report_out.parent.mkdir(parents=True, exist_ok=True)
+        args.report_out.write_text(md, encoding="utf-8", newline="\n")
+    if api is not None:
+        api.http.close()
+    failed = any(r["final_state"] != "monitoring" or r["classification_ok"] is False for r in runs)
+    return 1 if args.strict and (failed or stubs) else 0
 
 
 if __name__ == "__main__":

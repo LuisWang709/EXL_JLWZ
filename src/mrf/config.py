@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     cosmos_database: str = "mrf"
     cosmos_key: str = ""  # local emulator only; cloud uses managed identity
     blob_account_url: str = ""
+    blob_container: str = "mrf"
 
     worker_concurrency: int = 2
 

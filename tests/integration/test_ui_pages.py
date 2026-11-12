@@ -76,6 +76,29 @@ async def test_pages_render(api_client: ApiClient, view: str, title: str) -> Non
     assert at.title[0].value == title
 
 
+async def test_rebuild_tab_starts_real_job_and_shows_code_and_failures(api_client: ApiClient) -> None:
+    from tests.unit.test_rebuild_agent import LEGACY, _ctx
+
+    ctx = await _ctx("M001", LEGACY / "M001_sas_pd_scorecard" / "m001_pd_scorecard.sas")
+    at = run(page_script("models"), api_client)
+    next(b for b in at.button if b.label == "Start Python rebuild").click().run()
+    assert not at.exception
+    job_key = f"rebuild-job-{ctx.model.model_id}"
+    job = api_client.wait_job(at.session_state[job_key], timeout=30, interval=0.02)
+    assert job["status"] == "succeeded" and job["result"]["passed"] is True
+    run(at, api_client)
+    assert any("Rebuild job completed" in s.value for s in at.success)
+    assert any("def score(" in c.value for c in at.code)
+    assert any(e.label == "Parity certificate" for e in at.expander)
+
+    next(t for t in at.text_input if t.label == "Parity fixture ID (optional)").set_value("missing_fixture")
+    next(b for b in at.button if b.label == "Start Python rebuild").click().run()
+    job = api_client.wait_job(at.session_state[job_key], timeout=30, interval=0.02)
+    assert job["status"] == "failed" and job["error"]["code"] == "MRF-1404"
+    run(at, api_client)
+    assert any("Rebuild failed: MRF-1404" in e.value for e in at.error)
+
+
 async def test_monitoring_page_shows_drift(api_client: ApiClient) -> None:
     await seeded()
     at = run(page_script("monitoring"), api_client)

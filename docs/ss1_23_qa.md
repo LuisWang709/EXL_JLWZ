@@ -7,9 +7,11 @@
 ## About SS1/23
 
 **Q1. What is SS1/23 and who does it apply to?**
-The PRA supervisory statement on model risk management for banks, published 17 May 2023 with PS6/23 and effective
-17 May 2024. It is aimed at UK banks, building societies and PRA-designated investment firms with internal model
+The PRA supervisory statement on model risk management for banks, originally published 17 May 2023 with PS6/23.
+The official landing page lists the April 2026 revision as the current version (published/effective 23 April 2026).
+It is aimed at UK banks, building societies and PRA-designated investment firms with internal model
 approval for regulatory capital; the PRA encourages other firms to use it proportionately.
+See [the current-version index](https://www.bankofengland.co.uk/prudential-regulation/publication/2023/may/model-risk-management-principles-for-banks-ss).
 
 **Q2. What are the five principles?**
 (1) model identification and model risk classification, (2) governance, (3) model development, implementation and
@@ -58,7 +60,7 @@ standard for population drift. The common rule of thumb is below 0.10 stable, 0.
 significant shift - we use exactly those values for green / amber / red.
 
 **Q10. What about fairness?**
-We measure approval rates, adverse impact ratio, TPR and FPR by segment. For M001 the under-30 band fails the
+We measure approval rates, adverse impact ratio, TPR and FPR by segment. For M001 the under-25 band fails the
 four-fifths rule on the sample, partly because its observed bad rate is higher; the stronger concern is that good
 payers under 30 are declined more often. Options and the decision are in `docs/fairness_m001.md`.
 
@@ -73,12 +75,55 @@ sends the model back to the usability run and a new H2 sign-off.
 **Q13. Why TF-IDF retrieval rather than embeddings?**
 The knowledge base is small and terminology-heavy; TF-IDF is deterministic, needs no embedding service, runs
 offline in CI and in the container, and every hit carries its source and line range.
-The backend can be swapped (FAISS is used when installed; Azure AI Search is the cloud option).
+FAISS accelerates the same local ranking when installed; numpy remains the supported container backend.
+An Azure AI Search backend is an optional extension and has not been implemented.
 
 **Q14. How would this scale to 250 models?**
 The pipeline is per model and asynchronous; cost and time per model are tracked in the pipeline usage and shown
 in the analysis report. The business case multiplies measured per-model figures - no estimates are used.
 
 **Q15. What are the main limitations?**
-See `docs/responsible_ai.md`: paraphrased knowledge base until the official text is added, no automated
-personal-data / prompt-injection detector yet, fairness numbers from a small sample, thresholds are team policy.
+See `docs/responsible_ai.md`: the knowledge base paraphrases the official source, pattern guards have blind spots,
+and fairness numbers use a small fixture. Team thresholds are not regulatory limits. Real LLM calibration,
+independent legacy-runtime output and measured manual effort remain acceptance dependencies.
+
+**Q16. Does a passing parity test prove that the original model is correct?**
+It proves agreement with the supplied reference scores on the tested inputs and tolerance. It does not establish
+conceptual soundness or validity outside those inputs. Current SAS/R reference scores were reproduced in Python,
+so independent SAS/R exports remain an important data-team acceptance item.
+
+**Q17. Can a model reach monitoring without a dataset?**
+Yes, for documentation demonstrations. The orchestrator records that scoring was skipped. The evaluation harness
+marks this run as incomplete for reporting, and validation dimensions without observations remain unassessed.
+
+**Q18. What happens if a deployed module is missing?**
+dev/demo reject forced stubs and missing implementations. Readiness reports an agent-load failure instead of
+silently replacing a module with simulated behaviour.
+
+**Q19. What do the LLM cost figures measure?**
+Token usage multiplied by configured model prices. They are estimates, not provider invoices, and mock usage is
+not a claim about production latency or expense. Compare deployment runs and the actual invoice before budgeting.
+
+**Q20. How do you test the self-correction loop?**
+Unit tests return a deliberately wrong reference-level translation, check the parity diagnosis, then provide a
+corrected translation. A mock demo can enable the same story, but it must be labelled as simulated.
+
+**Q21. Can the system execute arbitrary uploaded Python?**
+Generated scoring code is checked against the restricted scoring contract before a subprocess executes it.
+This is a demo control, not a hardened multi-tenant execution environment. Hostile workloads need stronger isolation.
+
+**Q22. Who may sign off a fairness finding?**
+The responsible human reviewer records the decision and its conditions at H2. The system surfaces the metrics
+and limitations but cannot certify legal compliance or choose a business cut-off on behalf of the owner.
+
+**Q23. What has the team measured about business savings?**
+No manual baseline has been supplied. The report omits savings until measured manual hours and an agreed cost
+rate are available. Multiplying an unmeasured assumption across a portfolio would not be an observed result.
+
+**Q24. How are cloud artefacts kept private?**
+Azure Files remains the deployment default. The optional Azure Blob adapter uses managed identity and accepts
+only its configured account/container URLs. Neither adapter makes reports public automatically.
+
+**Q25. What must happen before a final submission?**
+Complete the data handoff and independent reference runs, calibrate the deployed LLM, obtain owner approvals,
+check deployment and CI, record/publish the demo, and have the team send and archive the submission email.

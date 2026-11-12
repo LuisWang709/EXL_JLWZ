@@ -6,6 +6,11 @@ licence: Team-written paraphrase for the EXL x UCD hackathon. Verify against the
 
 # SS1/23 at a glance
 
+Version note checked 12 November 2026: the official index lists the April 2026 revision as current,
+published and effective 23 April 2026. The paragraphs below remain the team's earlier paraphrase and need
+owner review against that revision. The original dates below describe the first publication only.
+Current PDF: https://www.bankofengland.co.uk/-/media/boe/files/prudential-regulation/supervisory-statement/2026/liaf0126app5.pdf
+
 The PRA supervisory statement SS1/23 sets out what the PRA expects from banks when they manage model risk.
 It was published on 17 May 2023 together with policy statement PS6/23 and took effect on 17 May 2024.
 The statement asks firms to treat model risk as a risk discipline in its own right and to manage it

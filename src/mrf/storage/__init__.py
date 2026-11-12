@@ -68,8 +68,11 @@ def get_blobs() -> BlobStore:
     if _blobs is None:
         s = get_settings()
         if s.blob_account_url:
-            raise NotImplementedError("Azure Blob store lands 11/9 (A1); leave MRF_BLOB_ACCOUNT_URL empty")
-        _blobs = LocalBlobStore(s.data_dir / "blobs")
+            from mrf.storage.azure_blobs import AzureBlobStore
+
+            _blobs = AzureBlobStore(s.blob_account_url, s.blob_container, s.data_dir / "blob-cache")
+        else:
+            _blobs = LocalBlobStore(s.data_dir / "blobs")
     return _blobs
 
 

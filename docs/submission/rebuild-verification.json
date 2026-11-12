@@ -1,0 +1,99 @@
+{
+  "verified_at_utc": "2026-11-12T11:30:11.546323+00:00",
+  "source": "14d29a3 plus the non-data completion working tree",
+  "runtime": {
+    "env": "local",
+    "storage_backend": "sqlite",
+    "llm_provider": "mock",
+    "llm_model": "gpt-4o-mini",
+    "guards_enabled": true
+  },
+  "legacy_reference": "Python reproduction, not independent SAS/R runtime exports",
+  "approvals": "Automated seed_demo simulation, not independent human sign-off",
+  "models": [
+    {
+      "model": "M001",
+      "parity": {
+        "passed": true,
+        "n_records": 300,
+        "n_mismatches": 0,
+        "max_abs_diff": 4.9788112521653716e-09,
+        "tolerance": 1e-06
+      },
+      "generator": "template",
+      "code_sha256": "02fc78c28c5579f7f881436944b988b27bd0685d0ec47a07c5b6a8432fc365c8",
+      "certificate_issued": true,
+      "runs": [
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 700
+        },
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 300
+        }
+      ],
+      "pipeline_state_after_demo": "awaiting_signoff"
+    },
+    {
+      "model": "M002",
+      "parity": {
+        "passed": true,
+        "n_records": 500,
+        "n_mismatches": 0,
+        "max_abs_diff": 1.1102230246251565e-16,
+        "tolerance": 1e-06
+      },
+      "generator": "template",
+      "code_sha256": "a91eb1993a84033af3a52bc4fab71cdb81c650f9d8cd0601b3719fae23d48c3f",
+      "certificate_issued": true,
+      "runs": [
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 21000
+        },
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 9000
+        }
+      ],
+      "pipeline_state_after_demo": "monitoring"
+    },
+    {
+      "model": "M004",
+      "parity": {
+        "passed": true,
+        "n_records": 300,
+        "n_mismatches": 0,
+        "max_abs_diff": 8.881784197001252e-16,
+        "tolerance": 1e-06
+      },
+      "generator": "template",
+      "code_sha256": "65fdab70656c3e35d0787ecc77e8ae2e31f0ca8ed6a7d75022d12b92214996cb",
+      "certificate_issued": true,
+      "runs": [
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 700
+        },
+        {
+          "kind": "usability",
+          "status": "succeeded",
+          "n_records": 300
+        }
+      ],
+      "pipeline_state_after_demo": "monitoring"
+    }
+  ],
+  "monitoring": {
+    "batches": 4,
+    "alerts": 3,
+    "job": "succeeded"
+  },
+  "injection_rejected": "MRF-1005"
+}

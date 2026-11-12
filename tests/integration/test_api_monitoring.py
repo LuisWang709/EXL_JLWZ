@@ -66,6 +66,11 @@ async def test_put_schedule(client: TestClient) -> None:
     assert not_deployed.status_code == 409 and not_deployed.json()["code"] == "MRF-3201"
     bad = client.put("/api/v1/monitoring/schedules/mdl_t", headers=H, json={"cron": "hourly"})
     assert bad.status_code == 422
+    for cron in ("0 25 * * *", "*/0 * * * *", "0 0 32 * *", "0 0 * 13 *", "0 0 * * 8"):
+        bad = client.put("/api/v1/monitoring/schedules/mdl_t", headers=H, json={"cron": cron})
+        assert bad.status_code == 422
+        assert bad.json()["code"] == "MRF-1006"
+    assert (await get_repo().get(Collections.SCHEDULES, "mdl_t", Schedule)).cron == "0 * * * *"
 
 
 async def test_dataset_quality_endpoint(client: TestClient, tmp_path: Path) -> None:

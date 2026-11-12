@@ -11,7 +11,8 @@ stops at two mandatory human gates. AI assists the model risk team; it does not 
 **Data.** Development and demo data are public: the UCI Statlog German Credit dataset (Hofmann, 1994; CC BY 4.0,
 doi:10.24432/C5NC77) and synthetic monitoring batches derived from it. No real customer data is used. The raw
 dataset contains sensitive attributes (personal status and sex, foreign worker); the cleaned M001 data does not
-use them. Datasets are kept out of git (`.gitignore`) and out of the container image (`.dockerignore`).
+use them. Raw and cleaned data directories stay out of git and the container image. Small public or anonymised
+parity samples under `tests/fixtures/` are deliberately bundled so the runtime can verify rebuilds.
 
 **Privacy and what reaches the LLM.** Agents send the LLM source code, parser summaries, knowledge-base text and
 aggregated statistics. The data-profiling tool contract forbids returning raw rows, and the documentation agent
@@ -31,7 +32,7 @@ and are read through a managed identity in the cloud.
 
 **Bias and fairness.** `mrf.validation.fairness` reports approval rate, adverse impact ratio, TPR and FPR per
 segment; the analysis and validation reports turn the disparate impact into a traffic light (four-fifths rule).
-On the M001 fixture the under-30 age band fails the four-fifths rule (see `docs/fairness_m001.md`); the
+On the M001 fixture the under-25 age band fails the four-fifths rule (see `docs/fairness_m001.md`); the
 mitigation decision is recorded there and at H2. Age is a protected characteristic under the Equality Act 2010;
 its use in credit risk assessment must rest on relevant and reliable information (Schedule 3 para 20A).
 

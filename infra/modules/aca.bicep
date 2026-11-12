@@ -90,7 +90,6 @@ var apiEnv = concat(
     { name: 'MRF_DATA_DIR', value: '/data' }
     { name: 'MRF_SQLITE_PATH', value: '/state/mrf.sqlite' }
     { name: 'MRF_CHECKPOINT_PATH', value: '/state/checkpoints.sqlite' }
-    { name: 'MLFLOW_TRACKING_URI', value: '/data/mlruns' }
     { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appi.properties.ConnectionString }
   ],
   llmEnv,

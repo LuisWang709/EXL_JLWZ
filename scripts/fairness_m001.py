@@ -7,7 +7,7 @@
         --scores runs/m001_oot_scores.csv --score-column pd_python --write    # full out-of-time data
 
 ``--data`` needs id, default_flag and age_band; ``--scores`` needs id and the score column (default: the
-fixture's legacy scores). Age bands come from the M001 SAS code: 1 = under 30, 2 = 30-44, 3 = 45 and over.
+fixture's legacy scores). Age bands come from the M001 SAS code: 1 = under 25, 2 = 25-39, 3 = 40 and over.
 Every number in the block is computed here with mrf.validation - nothing is typed by hand.
 """
 
@@ -25,7 +25,7 @@ from mrf import validation as v
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "m001"
 DOC = REPO_ROOT / "docs" / "fairness_m001.md"
-BANDS = {"1": "under 30", "2": "30-44", "3": "45 and over"}
+BANDS = {"1": "under 25", "2": "25-39", "3": "40 and over"}
 START, END = "<!-- numbers:start -->", "<!-- numbers:end -->"
 
 
@@ -82,7 +82,8 @@ def main() -> int:
     if len(df) != len(data):
         print(f"warning: {len(data) - len(df)} rows of --data have no score and are excluded")
     coefficients = json.loads(args.coefficients.read_text()) if args.coefficients.exists() else None
-    source = f"`{args.data.relative_to(REPO_ROOT) if args.data.is_relative_to(REPO_ROOT) else args.data.name}`"
+    source_path = args.data.relative_to(REPO_ROOT).as_posix() if args.data.is_relative_to(REPO_ROOT) else args.data.name
+    source = f"`{source_path}`"
     text = block(df, args.score_column, source, coefficients)
     print(text)
     if args.write:

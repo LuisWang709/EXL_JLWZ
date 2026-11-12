@@ -104,6 +104,8 @@ async def _stage_uploaded(model_id: str, files: list[ArtifactRef]) -> str | None
 
 async def resolve_fixture(model: ModelRecord, files: list[ArtifactRef], explicit: str | None = None) -> str | None:
     """Fixture id for a model, or None when there is nothing to prove parity against."""
+    if explicit is not None and fixture_dir(explicit) is None:
+        raise MRFError(MRFCode.NOT_FOUND, f"parity fixture '{explicit}' not found", field="fixture_id")
     staged = await _stage_uploaded(model.model_id, files)
     if staged:
         return staged

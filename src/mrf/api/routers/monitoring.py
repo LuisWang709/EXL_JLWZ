@@ -22,6 +22,7 @@ from mrf.api.deps import IdemKey, Paging, accepted_response, ok, paged
 from mrf.contracts.models import Alert, Dataset, ModelRecord, MonitoringMetric, ReportKind, Schedule
 from mrf.core import MRFCode, MRFError
 from mrf.jobs import get_executor
+from mrf.monitoring.cron import Cron
 from mrf.storage import Collections, get_repo
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
@@ -77,8 +78,7 @@ class ScheduleIn(BaseModel):
     @field_validator("cron")
     @classmethod
     def _five_fields(cls, value: str) -> str:
-        if len(value.split()) != 5:
-            raise ValueError("cron must have 5 fields: minute hour day-of-month month day-of-week (UTC)")
+        Cron(value)
         return value.strip()
 
 

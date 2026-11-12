@@ -24,6 +24,8 @@ def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=envelope({"items": [{"model_id": "mdl_1"}], "pagination": {"total": 7}}))
     if path == "/api/v1/pipelines" and request.method == "POST":
         return httpx.Response(202, json=envelope({"job_id": "job_1", "pipeline_id": "pl_1", "model_id": "mdl_1"}))
+    if path == "/api/v1/models/mdl_1/rebuilds" and request.method == "POST":
+        return httpx.Response(202, json=envelope({"job_id": "job_rb"}))
     if path == "/api/v1/reviews/rev_1/decision":
         return httpx.Response(200, json=envelope({"review": {"review_id": "rev_1"}}))
     if path.endswith("/reports/rpt_1"):
@@ -59,6 +61,13 @@ def test_decision_carries_operator(client: ApiClient) -> None:
     request = seen[-1]
     assert request.headers["X-Operator"] == "Luis"
     assert json.loads(request.content) == {"decision": "reject", "comment": "fix section 3"}
+
+
+def test_start_rebuild_sends_fixture_and_attempt_limit(client: ApiClient) -> None:
+    assert client.start_rebuild("mdl_1", "m002", 2)["job_id"] == "job_rb"
+    assert json.loads(seen[-1].content) == {"fixture_id": "m002", "max_attempts": 2}
+    client.start_rebuild("mdl_1")
+    assert json.loads(seen[-1].content) == {"max_attempts": 5}
 
 
 def test_html_and_errors(client: ApiClient) -> None:

@@ -26,6 +26,7 @@ import os
 from dataclasses import dataclass, fields
 from typing import Any
 
+from mrf.config import get_settings
 from mrf.contracts.agents import (
     Classifier,
     DataQualityChecker,
@@ -36,6 +37,7 @@ from mrf.contracts.agents import (
     Rebuilder,
     ReportBuilder,
 )
+from mrf.core import MRFCode, MRFError
 from mrf.orchestrator import stubs
 
 log = logging.getLogger(__name__)
@@ -83,6 +85,8 @@ class Registry:
     @classmethod
     def discover(cls, **overrides: Any) -> Registry:
         forced = {s.strip() for s in os.environ.get("MRF_STUBS", "").split(",") if s.strip()}
+        if forced and get_settings().env != "local":
+            raise MRFError(MRFCode.INVALID_STATE, "MRF_STUBS is only allowed in the local environment")
         values: dict[str, Any] = {}
         for f in fields(cls):
             if f.name in overrides:
@@ -103,11 +107,15 @@ def _load(slot: str) -> Any:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as exc:
         if exc.name and module_name.startswith(exc.name):  # the module itself is missing -> not written yet
+            if get_settings().env != "local":
+                raise MRFError(MRFCode.INVALID_STATE, f"required agent '{slot}' is unavailable") from exc
             log.info("registry: %s not implemented yet, using stub", slot)
             return STUBS[slot]()
         raise  # a dependency inside the module is missing: surface it
     impl = getattr(module, class_name, None)
     if impl is None:
+        if get_settings().env != "local":
+            raise MRFError(MRFCode.INVALID_STATE, f"required agent '{slot}' is unavailable")
         log.warning("registry: %s has no %s, using stub", module_name, class_name)
         return STUBS[slot]()
     return impl()

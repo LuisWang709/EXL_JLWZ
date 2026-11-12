@@ -12,7 +12,7 @@ from mrf.agents.rebuild import codegen
 from mrf.agents.rebuild.agent import ROLE, RebuildAgent, RebuildOutput
 from mrf.agents.rebuild.execution import ScoringError, score_csv
 from mrf.agents.rebuild.fixtures import load_fixture
-from mrf.agents.rebuild.runner import ModelRunnerImpl
+from mrf.agents.rebuild.runner import ModelRunnerImpl, proven_rebuild
 from mrf.contracts.agents import StepContext
 from mrf.contracts.models import (
     ArtifactRef,
@@ -45,6 +45,25 @@ async def _ctx(name: str, source: Path, attempt: int = 1, **kwargs: object) -> S
     )
     await get_repo().put(Collections.MODELS, model.model_id, model)
     return StepContext(pipeline_id="pl_t", model=model, source_files=[ref], attempt=attempt, **kwargs)  # type: ignore[arg-type]
+
+
+async def test_explicit_rebuild_cannot_cross_models_or_fall_back() -> None:
+    rb = Rebuild(rebuild_id="rb_other", model_id="mdl_other", attempt=1)
+    await get_repo().put(Collections.REBUILDS, rb.rebuild_id, rb)
+    with pytest.raises(MRFError, match="does not belong"):
+        await proven_rebuild("mdl_requested", rb.rebuild_id)
+    with pytest.raises(MRFError, match="has not passed"):
+        await proven_rebuild("mdl_other", rb.rebuild_id)
+    with pytest.raises(MRFError, match="does not belong"):
+        await proven_rebuild("mdl_other", "missing")
+
+
+async def test_unknown_explicit_fixture_does_not_silently_use_builtin() -> None:
+    ctx = await _ctx("M001", LEGACY / "M001_sas_pd_scorecard" / "m001_pd_scorecard.sas",
+                     artifacts={"fixture_id": "misspelled_fixture"})
+    with pytest.raises(MRFError) as exc:
+        await RebuildAgent().rebuild(ctx)
+    assert exc.value.code is MRFCode.NOT_FOUND
 
 
 def _wrong_reference_code() -> str:

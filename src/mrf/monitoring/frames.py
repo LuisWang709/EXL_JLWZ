@@ -15,6 +15,12 @@ SCORE_COLUMNS = ("score", "pd", "pd_python", "prediction", "probability")
 
 
 def _local_uri(uri: str) -> str:
+    from mrf.storage import get_blobs
+
+    if uri.startswith("https://"):
+        local_path = getattr(get_blobs(), "local_path", None)
+        if local_path is not None:
+            return str(local_path(uri))
     if not uri.startswith("file://"):
         return uri
     path = unquote(urlparse(uri).path)

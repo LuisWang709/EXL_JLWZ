@@ -6,14 +6,15 @@
 
 ```bash
 uv sync
-uv run pytest                                          # 53 个测试，全部使用 mock，不需要网络
-uv run python -m mrf.run --model M001 --auto-approve   # 用 stub 跑完整 11 步，最后进入 monitoring
+uv run pytest                                          # 使用 mock LLM，不需要网络
+uv run python -m mrf.run --model M001 --auto-approve   # 真实模块；未提供数据集时不执行可用性评分
 uv run uvicorn mrf.api.app:app --reload                # http://localhost:8000/docs，MCP 在 /mcp/
 ```
 
 ## 1. 实现你的 Protocol（约定路径即可自动接入）
 
-编排器启动时会按下表的路径 import 你的类，**用无参构造函数**实例化。如果模块还不存在，就自动用 stub 代替。
+编排器启动时会按下表的路径 import 你的类，**用无参构造函数**实例化。仅本地环境在模块不存在时允许 stub；
+dev/demo 缺少任何实现或设置 `MRF_STUBS` 都会报错，`/readyz` 检查模块能否加载。
 
 | 槽位 | 路径 `module:Class` | 负责人 |
 | --- | --- | --- |
