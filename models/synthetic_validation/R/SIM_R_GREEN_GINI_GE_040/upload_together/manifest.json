@@ -1,0 +1,17 @@
+{
+  "model_id": "SIM_R_GREEN_GINI_GE_040",
+  "name": "SIM_R_GREEN_GINI_GE_040",
+  "source_language": "R",
+  "algorithm": "logistic_regression",
+  "target": "default_flag",
+  "record_id_column": "id",
+  "score_column": "pd_legacy",
+  "link": "logit",
+  "feature_columns": [
+    "risk_driver",
+    "utilisation"
+  ],
+  "tolerance": 1e-06,
+  "synthetic": true,
+  "reference_score_origin": "Python formula using frozen synthetic coefficients"
+}

@@ -1,0 +1,22 @@
+{
+  "name": "SIM_R_AMBER_GINI_030_040",
+  "language": "R",
+  "source": "upload_together/SIM_R_AMBER_GINI_030_040.R",
+  "expected_rag": "amber",
+  "calibration": {
+    "seed": 336,
+    "development": {
+      "auc": 0.6824507580810102,
+      "gini": 0.3649015161620204,
+      "hl_p_value": 0.06496759995837817,
+      "disparate_impact": 1.0
+    },
+    "validation": {
+      "auc": 0.6753374014520511,
+      "gini": 0.35067480290410225,
+      "hl_p_value": 0.054837417006510444,
+      "disparate_impact": 1.0
+    },
+    "psi_score": 0.054745302148637445
+  }
+}

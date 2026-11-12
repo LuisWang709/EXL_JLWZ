@@ -40,6 +40,11 @@ data/*
 *.rda
 *.feather
 !tests/fixtures/**
+# Explicitly synthetic validation examples (no raw / customer data).
+!models/synthetic_validation/**/development.csv
+!models/synthetic_validation/**/validation.csv
+!models/synthetic_validation/**/upload_together/input_sample.csv
+!models/synthetic_validation/**/upload_together/legacy_scores.csv
 
 # Runtime artefacts
 var/
@@ -49,6 +54,8 @@ var/
 mlruns/
 mlartifacts/
 outputs/
+# Generated download copy; the unpacked suite is versioned under models/synthetic_validation/.
+output/test_models/
 reports_out/
 kb/index/
 

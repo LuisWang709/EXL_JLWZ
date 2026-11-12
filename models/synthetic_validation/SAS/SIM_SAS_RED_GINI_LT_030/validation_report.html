@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Validation report - SIM_SAS_RED_GINI_LT_030</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:1040px;margin:28px auto;padding:0 22px;color:#1d2433;line-height:1.45}
+h1{font-size:1.55em;margin-bottom:4px}h2{font-size:1.15em;margin-top:1.7em;border-bottom:1px solid #d5dae3;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d5dae3;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-weight:600;font-size:.85em}
+.green{background:#d7f2df;color:#135c2b}.amber{background:#fdebc8;color:#7a4b00}.red{background:#f9d4d2;color:#8a1c14}.na{background:#e6e8ee;color:#4a5263}
+.overall{font-size:1.1em;margin:14px 0}.box{border:1px solid #c2c9d6;border-radius:6px;padding:10px 14px;background:#f8f9fb}
+.num{font-variant-numeric:tabular-nums}.sign td{height:28px}
+</style>
+</head>
+<body>
+
+<h1>Validation report - H2 sign-off pack</h1>
+<p class="muted"><span class="meta">SIM_SAS_RED_GINI_LT_030 · model mdl_6af5e9c222c46d72 · report rpt_6af5e9c53c94b313 · generated 2026-11-12 16:31 UTC</span></p>
+<div class="box"><strong>Recommendation:</strong> Do not approve: at least one dimension is red. Overall status: <span class="badge red">RED</span></div>
+
+<h2>Model identification</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Model</td><td><span class="meta">SIM_SAS_RED_GINI_LT_030 (mdl_6af5e9c222c46d72)</span></td></tr>
+
+  <tr><td>Language / algorithm / purpose</td><td><span class="meta">sas / logistic_regression / pd</span></td></tr>
+  <tr><td>Target</td><td><span class="meta">default_flag</span></td></tr>
+  <tr><td>Identification confidence</td><td><span class="num" data-key="identification.confidence" data-spec=".2f">0.97</span></td></tr>
+
+  <tr><td>Owner</td><td><span class="meta">Synthetic Validation Tests</span></td></tr>
+</table>
+
+<h2>Documentation</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Document</td><td><span class="meta">doc_6af5e9c27eaed1c5</span> (approved)</td></tr>
+  <tr><td>Rating total (pass at <span class="num" data-key="thresholds.pass_score" data-spec=".0f">80</span>)</td><td><span class="num" data-key="documentation.rating_total" data-spec=".1f">93.0</span> - passed</td></tr>
+  <tr><td>Rule checks / LLM review</td><td><span class="num" data-key="documentation.rule_score" data-spec=".1f">60.0</span> / <span class="num" data-key="documentation.llm_score" data-spec=".1f">33.0</span></td></tr>
+  <tr><td>Attempt</td><td><span class="num" data-key="documentation.attempts" data-spec="d">1</span></td></tr>
+
+</table>
+
+<h2>Rebuild and parity</h2>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Rebuild</td><td><span class="meta">rb_6af5e9c2f7fd6f36</span> (passed)</td></tr>
+  <tr><td>Records compared</td><td><span class="num" data-key="parity.n_records" data-spec="d">900</span></td></tr>
+  <tr><td>Mismatching records</td><td><span class="num" data-key="parity.n_mismatches" data-spec="d">0</span></td></tr>
+  <tr><td>Max absolute score difference</td><td><span class="num" data-key="parity.max_abs_diff" data-spec=".2e">6.55e-13</span></td></tr>
+  <tr><td>Tolerance</td><td><span class="num" data-key="parity.tolerance" data-spec=".0e">1e-06</span></td></tr>
+  <tr><td>Rebuild attempt</td><td><span class="num" data-key="parity.attempts" data-spec="d">1</span></td></tr>
+</table>
+
+<h2>Usability by dimension</h2>
+<table>
+  <tr><th>Dimension</th><th>Status</th><th>Key figure</th><th>Thresholds</th></tr>
+  <tr>
+    <td>Consistency: Python rebuild vs legacy scores</td>
+    <td><span class="badge green">GREEN</span></td>
+    <td><span class="num" data-key="parity.n_mismatches" data-spec="d">0</span> mismatching of <span class="num" data-key="parity.n_records" data-spec="d">900</span>
+      records; max abs difference <span class="num" data-key="parity.max_abs_diff" data-spec=".2e">6.55e-13</span></td>
+    <td>tolerance <span class="num" data-key="parity.tolerance" data-spec=".0e">1e-06</span></td>
+  </tr>
+  <tr>
+    <td>Performance: discrimination and calibration</td>
+    <td><span class="badge red">RED</span></td>
+    <td>Gini <span class="num" data-key="performance.gini" data-spec=".3f">0.152</span>; Hosmer-Lemeshow p-value <span class="num" data-key="performance.hl_p_value" data-spec=".3f">0.381</span></td>
+    <td>green: Gini at least <span class="num" data-key="thresholds.gini_green" data-spec=".2f">0.40</span>; amber: at least <span class="num" data-key="thresholds.gini_amber" data-spec=".2f">0.30</span>;
+      calibration amber below p <span class="num" data-key="thresholds.hl_p_value_amber" data-spec=".2f">0.05</span></td>
+  </tr>
+  <tr>
+    <td>Stability: score population stability index</td>
+    <td><span class="badge green">GREEN</span></td>
+    <td>score PSI <span class="num" data-key="stability.psi_score" data-spec=".3f">0.058</span></td>
+    <td>amber from <span class="num" data-key="thresholds.psi_amber" data-spec=".2f">0.10</span>; red above <span class="num" data-key="thresholds.psi_red" data-spec=".2f">0.25</span></td>
+  </tr>
+  <tr>
+    <td>Fairness: approval rates across segments</td>
+    <td><span class="badge green">GREEN</span></td>
+    <td>disparate impact <span class="num" data-key="fairness.disparate_impact" data-spec=".3f">1.000</span></td>
+    <td>green: at least <span class="num" data-key="thresholds.di_green" data-spec=".2f">0.80</span> (four-fifths rule); amber: at least <span class="num" data-key="thresholds.di_amber" data-spec=".2f">0.70</span></td>
+  </tr>
+</table>
+
+<h2>Performance and stability</h2>
+<table>
+  <tr><th>Metric</th><th>Value</th><th>Source</th></tr>
+  <tr><td>AUC</td><td><span class="num" data-key="performance.auc" data-spec=".3f">0.576</span></td><td rowspan="6">usability run <span class="meta">run_6af5e9c356baf762</span>
+    on dataset <span class="meta">mdl_6af5e9c222c46d72_development</span></td></tr>
+  <tr><td>Gini</td><td><span class="num" data-key="performance.gini" data-spec=".3f">0.152</span></td></tr>
+  <tr><td>KS</td><td><span class="num" data-key="performance.ks" data-spec=".3f">0.143</span></td></tr>
+  <tr><td>Brier score</td><td><span class="num" data-key="performance.brier" data-spec=".4f">0.2462</span></td></tr>
+  <tr><td>Hosmer-Lemeshow p-value</td><td><span class="num" data-key="performance.hl_p_value" data-spec=".3f">0.381</span></td></tr>
+  <tr><td>Score PSI</td><td><span class="num" data-key="stability.psi_score" data-spec=".3f">0.058</span></td></tr>
+</table>
+
+<h2>Fairness by segment</h2>
+
+<table>
+  <tr><th>Segment</th><th>Records</th><th>Bad rate</th><th>Approval rate</th><th>Adverse impact ratio</th><th>TPR (bads declined)</th><th>FPR (goods declined)</th></tr>
+
+  <tr>
+    <td><span class="meta">1</span></td>
+    <td><span class="num" data-key="fairness.segments.1.n" data-spec="d">300</span></td>
+    <td><span class="num" data-key="fairness.segments.1.bad_rate" data-spec=".1%">49.3%</span></td>
+    <td><span class="num" data-key="fairness.segments.1.approval_rate" data-spec=".1%">50.7%</span></td>
+    <td><span class="num" data-key="fairness.segments.1.adverse_impact_ratio" data-spec=".2f">1.00</span></td>
+    <td><span class="num" data-key="fairness.segments.1.tpr" data-spec=".1%">54.1%</span></td>
+    <td><span class="num" data-key="fairness.segments.1.fpr" data-spec=".1%">44.7%</span></td>
+  </tr>
+
+  <tr>
+    <td><span class="meta">2</span></td>
+    <td><span class="num" data-key="fairness.segments.2.n" data-spec="d">300</span></td>
+    <td><span class="num" data-key="fairness.segments.2.bad_rate" data-spec=".1%">49.3%</span></td>
+    <td><span class="num" data-key="fairness.segments.2.approval_rate" data-spec=".1%">50.7%</span></td>
+    <td><span class="num" data-key="fairness.segments.2.adverse_impact_ratio" data-spec=".2f">1.00</span></td>
+    <td><span class="num" data-key="fairness.segments.2.tpr" data-spec=".1%">54.1%</span></td>
+    <td><span class="num" data-key="fairness.segments.2.fpr" data-spec=".1%">44.7%</span></td>
+  </tr>
+
+  <tr>
+    <td><span class="meta">3</span></td>
+    <td><span class="num" data-key="fairness.segments.3.n" data-spec="d">300</span></td>
+    <td><span class="num" data-key="fairness.segments.3.bad_rate" data-spec=".1%">49.3%</span></td>
+    <td><span class="num" data-key="fairness.segments.3.approval_rate" data-spec=".1%">50.7%</span></td>
+    <td><span class="num" data-key="fairness.segments.3.adverse_impact_ratio" data-spec=".2f">1.00</span></td>
+    <td><span class="num" data-key="fairness.segments.3.tpr" data-spec=".1%">54.1%</span></td>
+    <td><span class="num" data-key="fairness.segments.3.fpr" data-spec=".1%">44.7%</span></td>
+  </tr>
+
+</table>
+<p>Reference segment (highest approval rate): <span class="meta">1</span>. Cases are declined when
+  the score is at or above <span class="num" data-key="fairness.threshold" data-spec=".4f">0.5010</span>, which declines as many cases as the observed bad rate;
+  <span class="num" data-key="fairness.n" data-spec="d">900</span> records. Equal-opportunity gap (TPR spread) <span class="num" data-key="fairness.max_tpr_gap" data-spec=".1%">0.0%</span>,
+  FPR spread <span class="num" data-key="fairness.max_fpr_gap" data-spec=".1%">0.0%</span>.</p>
+
+
+<h2>Findings</h2>
+<ul><li>Performance is red: Gini is below the green threshold.</li></ul>
+
+<h2>Sign-off checklist (H2)</h2>
+<table class="sign">
+  <tr><th>Check</th><th>Automated result</th><th>Validator confirms</th></tr>
+  <tr><td>Python rebuild reproduces the legacy scores within tolerance</td><td><span class="badge green">GREEN</span></td><td></td></tr>
+  <tr><td>Documentation passed rating and was approved at H1</td><td>yes, document approved</td><td></td></tr>
+  <tr><td>Discrimination and calibration acceptable for the intended use</td><td><span class="badge red">RED</span></td><td></td></tr>
+  <tr><td>Score distribution stable against the development baseline</td><td><span class="badge green">GREEN</span></td><td></td></tr>
+  <tr><td>Segment outcomes reviewed; mitigation agreed where needed</td><td><span class="badge green">GREEN</span></td><td></td></tr>
+  <tr><td>Limitations and conditions of use accepted (documentation section on assumptions and limitations)</td><td>see document</td><td></td></tr>
+  <tr><td>Monitoring thresholds and schedule agreed</td><td>config/pipeline.yaml monitoring</td><td></td></tr>
+</table>
+<table class="sign">
+  <tr><th>Validator</th><th>Date</th><th>Decision (approve / approve with conditions / reject)</th><th>Comments</th></tr>
+  <tr><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<h2>Warnings and data limitations</h2>
+<ul><li>Manual baseline not measured yet (config reporting.manual_baseline_hours): savings not computed.</li></ul>
+
+<p class="muted">Every number in this report is rendered from a recorded source (usability runs, rebuild, rating,
+pipeline usage or config/pipeline.yaml) and re-checked after rendering; the report is not stored if any number is
+untraceable or differs from its source. The source of each number is listed in the report summary returned by the API.</p>
+</body>
+</html>

@@ -1,0 +1,2036 @@
+[
+  {
+    "name": "SIM_R_GREEN_GINI_GE_040",
+    "actual_rag": "green",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "green",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Ready for approval: all dimensions are green.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.5068674944506826,
+          "n_missing_scores": 0,
+          "observed_rate": 0.5,
+          "auc": 0.8562222222222222,
+          "gini": 0.7124444444444444,
+          "ks": 0.5666666666666667,
+          "brier": 0.15475861330813068,
+          "hosmer_lemeshow": {
+            "statistic": 13.816159953225572,
+            "p_value": 0.08668478271263351,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 4.306156107649224,
+                "mean_prob": 0.04784617897388027,
+                "min_prob": 0.0029883165100241817,
+                "max_prob": 0.09617885644321386
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 6.0,
+                "expected": 12.415958273301388,
+                "mean_prob": 0.13795509192557098,
+                "min_prob": 0.0990922707625253,
+                "max_prob": 0.17613133625471583
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 24.0,
+                "expected": 20.88954756811838,
+                "mean_prob": 0.23210608409020422,
+                "min_prob": 0.17846793546641093,
+                "max_prob": 0.27237483305834487
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 30.0,
+                "expected": 28.564411286035433,
+                "mean_prob": 0.3173823476226159,
+                "min_prob": 0.27484734216543827,
+                "max_prob": 0.3700040011791249
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 39.734588740566025,
+                "mean_prob": 0.4414954304507336,
+                "min_prob": 0.3800182800670868,
+                "max_prob": 0.4976463283207012
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 52.25877936845792,
+                "mean_prob": 0.580653104093977,
+                "min_prob": 0.4979675782390406,
+                "max_prob": 0.662220630897614
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 66.0,
+                "expected": 63.12466773725726,
+                "mean_prob": 0.7013851970806363,
+                "min_prob": 0.6642246210245555,
+                "max_prob": 0.7381048185529483
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 63.0,
+                "expected": 70.42494271362443,
+                "mean_prob": 0.7824993634847159,
+                "min_prob": 0.7408298409267229,
+                "max_prob": 0.8302597115197763
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 78.0,
+                "expected": 78.06005045373763,
+                "mean_prob": 0.8673338939304182,
+                "min_prob": 0.8337920261785888,
+                "max_prob": 0.9175721776363084
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 90.0,
+                "expected": 86.40164275686662,
+                "mean_prob": 0.9600182528540736,
+                "min_prob": 0.9199024982823315,
+                "max_prob": 0.9984367972446824
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.4978069532798709,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 654,
+          "rebuild_id": "rb_6af5e9add6e2bc1c",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.4936783584550319,
+          "n_missing_scores": 0,
+          "observed_rate": 0.4766666666666667,
+          "auc": 0.8808961738898045,
+          "gini": 0.7617923477796089,
+          "ks": 0.6564518284263507,
+          "brier": 0.1410172475588404,
+          "hosmer_lemeshow": {
+            "statistic": 15.173746225590948,
+            "p_value": 0.055853827436416585,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 4.3490188102431695,
+                "mean_prob": 0.048322431224924106,
+                "min_prob": 0.0006688700990137715,
+                "max_prob": 0.08160115972613106
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 10.789943527402688,
+                "mean_prob": 0.11988826141558542,
+                "min_prob": 0.0824308284528826,
+                "max_prob": 0.17207175709925865
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 18.0,
+                "expected": 19.584607705003336,
+                "mean_prob": 0.21760675227781484,
+                "min_prob": 0.1775426417502844,
+                "max_prob": 0.2727738846373872
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 21.0,
+                "expected": 27.689082978934344,
+                "mean_prob": 0.30765647754371495,
+                "min_prob": 0.2741316066493658,
+                "max_prob": 0.3544737084565442
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 36.67667968708004,
+                "mean_prob": 0.4075186631897782,
+                "min_prob": 0.3545329616158963,
+                "max_prob": 0.4631974425516833
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 48.29427890234061,
+                "mean_prob": 0.5366030989148957,
+                "min_prob": 0.4862601376250055,
+                "max_prob": 0.6110087300898275
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 69.0,
+                "expected": 60.460671651648255,
+                "mean_prob": 0.6717852405738695,
+                "min_prob": 0.6135978440419584,
+                "max_prob": 0.7283332882116133
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 72.0,
+                "expected": 70.62160415062857,
+                "mean_prob": 0.7846844905625396,
+                "min_prob": 0.7316994958083919,
+                "max_prob": 0.8430580553176871
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 78.0,
+                "expected": 79.32408939343935,
+                "mean_prob": 0.881378771038215,
+                "min_prob": 0.8430999982629942,
+                "max_prob": 0.9217493308794474
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 87.0,
+                "expected": 86.5205458028083,
+                "mean_prob": 0.9613393978089811,
+                "min_prob": 0.9258433559105435,
+                "max_prob": 0.9956635152464859
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5066136490638397,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.04631090072145668,
+          "psi_reference": "dataset:mdl_6af5e9ab9af1278f_development",
+          "duration_ms": 1160,
+          "rebuild_id": "rb_6af5e9add6e2bc1c",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "SIM_SAS_GREEN_GINI_GE_040",
+    "actual_rag": "green",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "green",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Ready for approval: all dimensions are green.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.5068674944506826,
+          "n_missing_scores": 0,
+          "observed_rate": 0.5,
+          "auc": 0.8562222222222222,
+          "gini": 0.7124444444444444,
+          "ks": 0.5666666666666667,
+          "brier": 0.15475861330813068,
+          "hosmer_lemeshow": {
+            "statistic": 13.816159953225572,
+            "p_value": 0.08668478271263351,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 4.306156107649224,
+                "mean_prob": 0.04784617897388027,
+                "min_prob": 0.0029883165100241817,
+                "max_prob": 0.09617885644321386
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 6.0,
+                "expected": 12.415958273301388,
+                "mean_prob": 0.13795509192557098,
+                "min_prob": 0.0990922707625253,
+                "max_prob": 0.17613133625471583
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 24.0,
+                "expected": 20.88954756811838,
+                "mean_prob": 0.23210608409020422,
+                "min_prob": 0.17846793546641093,
+                "max_prob": 0.27237483305834487
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 30.0,
+                "expected": 28.564411286035433,
+                "mean_prob": 0.3173823476226159,
+                "min_prob": 0.27484734216543827,
+                "max_prob": 0.3700040011791249
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 39.734588740566025,
+                "mean_prob": 0.4414954304507336,
+                "min_prob": 0.3800182800670868,
+                "max_prob": 0.4976463283207012
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 52.25877936845792,
+                "mean_prob": 0.580653104093977,
+                "min_prob": 0.4979675782390406,
+                "max_prob": 0.662220630897614
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 66.0,
+                "expected": 63.12466773725726,
+                "mean_prob": 0.7013851970806363,
+                "min_prob": 0.6642246210245555,
+                "max_prob": 0.7381048185529483
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 63.0,
+                "expected": 70.42494271362443,
+                "mean_prob": 0.7824993634847159,
+                "min_prob": 0.7408298409267229,
+                "max_prob": 0.8302597115197763
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 78.0,
+                "expected": 78.06005045373763,
+                "mean_prob": 0.8673338939304182,
+                "min_prob": 0.8337920261785888,
+                "max_prob": 0.9175721776363084
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 90.0,
+                "expected": 86.40164275686662,
+                "mean_prob": 0.9600182528540736,
+                "min_prob": 0.9199024982823315,
+                "max_prob": 0.9984367972446824
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.4978069532798709,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5,
+                "mean_score": 0.5068674944506827,
+                "flag_rate": 0.5,
+                "approval_rate": 0.5,
+                "tpr": 0.7666666666666667,
+                "fpr": 0.23333333333333334,
+                "auc": 0.8562222222222222,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 595,
+          "rebuild_id": "rb_6af5e9b5d9247ea7",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.4936783584550319,
+          "n_missing_scores": 0,
+          "observed_rate": 0.4766666666666667,
+          "auc": 0.8808961738898045,
+          "gini": 0.7617923477796089,
+          "ks": 0.6564518284263507,
+          "brier": 0.1410172475588404,
+          "hosmer_lemeshow": {
+            "statistic": 15.173746225590948,
+            "p_value": 0.055853827436416585,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 4.3490188102431695,
+                "mean_prob": 0.048322431224924106,
+                "min_prob": 0.0006688700990137715,
+                "max_prob": 0.08160115972613106
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 3.0,
+                "expected": 10.789943527402688,
+                "mean_prob": 0.11988826141558542,
+                "min_prob": 0.0824308284528826,
+                "max_prob": 0.17207175709925865
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 18.0,
+                "expected": 19.584607705003336,
+                "mean_prob": 0.21760675227781484,
+                "min_prob": 0.1775426417502844,
+                "max_prob": 0.2727738846373872
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 21.0,
+                "expected": 27.689082978934344,
+                "mean_prob": 0.30765647754371495,
+                "min_prob": 0.2741316066493658,
+                "max_prob": 0.3544737084565442
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 36.67667968708004,
+                "mean_prob": 0.4075186631897782,
+                "min_prob": 0.3545329616158963,
+                "max_prob": 0.4631974425516833
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 48.29427890234061,
+                "mean_prob": 0.5366030989148957,
+                "min_prob": 0.4862601376250055,
+                "max_prob": 0.6110087300898275
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 69.0,
+                "expected": 60.460671651648255,
+                "mean_prob": 0.6717852405738695,
+                "min_prob": 0.6135978440419584,
+                "max_prob": 0.7283332882116133
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 72.0,
+                "expected": 70.62160415062857,
+                "mean_prob": 0.7846844905625396,
+                "min_prob": 0.7316994958083919,
+                "max_prob": 0.8430580553176871
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 78.0,
+                "expected": 79.32408939343935,
+                "mean_prob": 0.881378771038215,
+                "min_prob": 0.8430999982629942,
+                "max_prob": 0.9217493308794474
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 87.0,
+                "expected": 86.5205458028083,
+                "mean_prob": 0.9613393978089811,
+                "min_prob": 0.9258433559105435,
+                "max_prob": 0.9956635152464859
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5066136490638397,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4936783584550318,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.8041958041958042,
+                "fpr": 0.17834394904458598,
+                "auc": 0.8808961738898045,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.04631090072145668,
+          "psi_reference": "dataset:mdl_6af5e9b5b40654c8_development",
+          "duration_ms": 1177,
+          "rebuild_id": "rb_6af5e9b5d9247ea7",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "SIM_R_AMBER_GINI_030_040",
+    "actual_rag": "amber",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "amber",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Approve only with conditions: amber or unassessed dimensions need a documented decision.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.48118682325078316,
+          "n_missing_scores": 0,
+          "observed_rate": 0.49,
+          "auc": 0.6824507580810102,
+          "gini": 0.3649015161620204,
+          "ks": 0.2849139655862345,
+          "brier": 0.2241483446941177,
+          "hosmer_lemeshow": {
+            "statistic": 14.713216359941148,
+            "p_value": 0.06496759995860504,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 18.0,
+                "expected": 22.108087955189163,
+                "mean_prob": 0.24564542172432402,
+                "min_prob": 0.1590921194310352,
+                "max_prob": 0.30099003259614215
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 27.0,
+                "expected": 29.121679353812205,
+                "mean_prob": 0.32357421504235784,
+                "min_prob": 0.30319639501629353,
+                "max_prob": 0.34900609464602744
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 33.421173844915536,
+                "mean_prob": 0.37134637605461707,
+                "min_prob": 0.35057054455197023,
+                "max_prob": 0.39454202937033167
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 37.74405597676757,
+                "mean_prob": 0.41937839974186186,
+                "min_prob": 0.3965153861047848,
+                "max_prob": 0.43967365793982305
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 41.0587450780065,
+                "mean_prob": 0.4562082786445167,
+                "min_prob": 0.44006968795256257,
+                "max_prob": 0.47473472874037553
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.24828207954647,
+                "mean_prob": 0.49164757866162745,
+                "min_prob": 0.4752635924203197,
+                "max_prob": 0.5091037042796921
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 48.13814577136047,
+                "mean_prob": 0.5348682863484496,
+                "min_prob": 0.5143579198206009,
+                "max_prob": 0.557594208254651
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 52.385353735892224,
+                "mean_prob": 0.5820594859543581,
+                "min_prob": 0.561838371539158,
+                "max_prob": 0.6043026261616525
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 66.0,
+                "expected": 57.47425922202911,
+                "mean_prob": 0.6386028802447679,
+                "min_prob": 0.6050533703042347,
+                "max_prob": 0.6756233539397735
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 72.0,
+                "expected": 67.36835790818563,
+                "mean_prob": 0.7485373100909515,
+                "min_prob": 0.676787987246536,
+                "max_prob": 0.8939661600804765
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.47647026795106984,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 624,
+          "rebuild_id": "rb_6af5e9b9ae7984cb",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.49427031208772476,
+          "n_missing_scores": 0,
+          "observed_rate": 0.4766666666666667,
+          "auc": 0.6753374014520511,
+          "gini": 0.35067480290410225,
+          "ks": 0.2949089127433076,
+          "brier": 0.22581344080750698,
+          "hosmer_lemeshow": {
+            "statistic": 15.229290954596395,
+            "p_value": 0.05483741700650324,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 21.0,
+                "expected": 21.760292655593474,
+                "mean_prob": 0.24178102950659416,
+                "min_prob": 0.13372174330633907,
+                "max_prob": 0.29202052925667055
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 28.967506386115936,
+                "mean_prob": 0.32186118206795483,
+                "min_prob": 0.29211123510115294,
+                "max_prob": 0.3454272529627804
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 27.0,
+                "expected": 33.822982262053465,
+                "mean_prob": 0.3758109140228163,
+                "min_prob": 0.348443953759454,
+                "max_prob": 0.3990090292197262
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 38.3637006824804,
+                "mean_prob": 0.42626334091644885,
+                "min_prob": 0.3992195731832265,
+                "max_prob": 0.4473080137505569
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 42.12118495426162,
+                "mean_prob": 0.46801316615846245,
+                "min_prob": 0.4475885958416919,
+                "max_prob": 0.4839835555063037
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 46.22766790023709,
+                "mean_prob": 0.5136407544470788,
+                "min_prob": 0.4850384111830905,
+                "max_prob": 0.5375230171250669
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 49.729179023474515,
+                "mean_prob": 0.5525464335941612,
+                "min_prob": 0.5376309744389528,
+                "max_prob": 0.5800331896228756
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 54.560723908733465,
+                "mean_prob": 0.6062302656525941,
+                "min_prob": 0.5815930238634809,
+                "max_prob": 0.6339323758358439
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 69.0,
+                "expected": 60.351859875566916,
+                "mean_prob": 0.6705762208396324,
+                "min_prob": 0.6356038102658622,
+                "max_prob": 0.7020821677420234
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 63.0,
+                "expected": 68.93818323043536,
+                "mean_prob": 0.7659798136715039,
+                "min_prob": 0.7055005491362256,
+                "max_prob": 0.8858953471477146
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.4985570755838546,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.054745302148637445,
+          "psi_reference": "dataset:mdl_6af5e9b8dae0c3a2_development",
+          "duration_ms": 1137,
+          "rebuild_id": "rb_6af5e9b9ae7984cb",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "SIM_SAS_AMBER_GINI_030_040",
+    "actual_rag": "amber",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "amber",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Approve only with conditions: amber or unassessed dimensions need a documented decision.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.48118682325078316,
+          "n_missing_scores": 0,
+          "observed_rate": 0.49,
+          "auc": 0.6824507580810102,
+          "gini": 0.3649015161620204,
+          "ks": 0.2849139655862345,
+          "brier": 0.2241483446941177,
+          "hosmer_lemeshow": {
+            "statistic": 14.713216359941148,
+            "p_value": 0.06496759995860504,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 18.0,
+                "expected": 22.108087955189163,
+                "mean_prob": 0.24564542172432402,
+                "min_prob": 0.1590921194310352,
+                "max_prob": 0.30099003259614215
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 27.0,
+                "expected": 29.121679353812205,
+                "mean_prob": 0.32357421504235784,
+                "min_prob": 0.30319639501629353,
+                "max_prob": 0.34900609464602744
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 33.421173844915536,
+                "mean_prob": 0.37134637605461707,
+                "min_prob": 0.35057054455197023,
+                "max_prob": 0.39454202937033167
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 37.74405597676757,
+                "mean_prob": 0.41937839974186186,
+                "min_prob": 0.3965153861047848,
+                "max_prob": 0.43967365793982305
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 41.0587450780065,
+                "mean_prob": 0.4562082786445167,
+                "min_prob": 0.44006968795256257,
+                "max_prob": 0.47473472874037553
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.24828207954647,
+                "mean_prob": 0.49164757866162745,
+                "min_prob": 0.4752635924203197,
+                "max_prob": 0.5091037042796921
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 48.13814577136047,
+                "mean_prob": 0.5348682863484496,
+                "min_prob": 0.5143579198206009,
+                "max_prob": 0.557594208254651
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 52.385353735892224,
+                "mean_prob": 0.5820594859543581,
+                "min_prob": 0.561838371539158,
+                "max_prob": 0.6043026261616525
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 66.0,
+                "expected": 57.47425922202911,
+                "mean_prob": 0.6386028802447679,
+                "min_prob": 0.6050533703042347,
+                "max_prob": 0.6756233539397735
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 72.0,
+                "expected": 67.36835790818563,
+                "mean_prob": 0.7485373100909515,
+                "min_prob": 0.676787987246536,
+                "max_prob": 0.8939661600804765
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.47647026795106984,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49,
+                "mean_score": 0.4811868232507832,
+                "flag_rate": 0.49,
+                "approval_rate": 0.51,
+                "tpr": 0.6190476190476191,
+                "fpr": 0.3660130718954248,
+                "auc": 0.6824507580810102,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 566,
+          "rebuild_id": "rb_6af5e9bc4bf560da",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.49427031208772476,
+          "n_missing_scores": 0,
+          "observed_rate": 0.4766666666666667,
+          "auc": 0.6753374014520511,
+          "gini": 0.35067480290410225,
+          "ks": 0.2949089127433076,
+          "brier": 0.22581344080750698,
+          "hosmer_lemeshow": {
+            "statistic": 15.229290954596395,
+            "p_value": 0.05483741700650324,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 21.0,
+                "expected": 21.760292655593474,
+                "mean_prob": 0.24178102950659416,
+                "min_prob": 0.13372174330633907,
+                "max_prob": 0.29202052925667055
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 28.967506386115936,
+                "mean_prob": 0.32186118206795483,
+                "min_prob": 0.29211123510115294,
+                "max_prob": 0.3454272529627804
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 27.0,
+                "expected": 33.822982262053465,
+                "mean_prob": 0.3758109140228163,
+                "min_prob": 0.348443953759454,
+                "max_prob": 0.3990090292197262
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 38.3637006824804,
+                "mean_prob": 0.42626334091644885,
+                "min_prob": 0.3992195731832265,
+                "max_prob": 0.4473080137505569
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 42.12118495426162,
+                "mean_prob": 0.46801316615846245,
+                "min_prob": 0.4475885958416919,
+                "max_prob": 0.4839835555063037
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 46.22766790023709,
+                "mean_prob": 0.5136407544470788,
+                "min_prob": 0.4850384111830905,
+                "max_prob": 0.5375230171250669
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 49.729179023474515,
+                "mean_prob": 0.5525464335941612,
+                "min_prob": 0.5376309744389528,
+                "max_prob": 0.5800331896228756
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 54.560723908733465,
+                "mean_prob": 0.6062302656525941,
+                "min_prob": 0.5815930238634809,
+                "max_prob": 0.6339323758358439
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 69.0,
+                "expected": 60.351859875566916,
+                "mean_prob": 0.6705762208396324,
+                "min_prob": 0.6356038102658622,
+                "max_prob": 0.7020821677420234
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 63.0,
+                "expected": 68.93818323043536,
+                "mean_prob": 0.7659798136715039,
+                "min_prob": 0.7055005491362256,
+                "max_prob": 0.8858953471477146
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.4985570755838546,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.4766666666666667,
+                "mean_score": 0.4942703120877247,
+                "flag_rate": 0.4766666666666667,
+                "approval_rate": 0.5233333333333333,
+                "tpr": 0.6083916083916084,
+                "fpr": 0.35668789808917195,
+                "auc": 0.6753374014520511,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.054745302148637445,
+          "psi_reference": "dataset:mdl_6af5e9bb73bf217f_development",
+          "duration_ms": 1161,
+          "rebuild_id": "rb_6af5e9bc4bf560da",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "SIM_R_RED_GINI_LT_030",
+    "actual_rag": "red",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "red",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Do not approve: at least one dimension is red.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.49845777493916127,
+          "n_missing_scores": 0,
+          "observed_rate": 0.49333333333333335,
+          "auc": 0.5758801564722618,
+          "gini": 0.15176031294452352,
+          "ks": 0.14331436699857747,
+          "brier": 0.2462246590879488,
+          "hosmer_lemeshow": {
+            "statistic": 8.559377731941266,
+            "p_value": 0.38081704855408116,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 38.33108613313837,
+                "mean_prob": 0.4259009570348708,
+                "min_prob": 0.3847277858388994,
+                "max_prob": 0.45350581166812653
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 41.52407467755145,
+                "mean_prob": 0.4613786075283494,
+                "min_prob": 0.45382585564785693,
+                "max_prob": 0.46780483947548357
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 42.76234271938125,
+                "mean_prob": 0.47513714132645835,
+                "min_prob": 0.4683448866892499,
+                "max_prob": 0.4811464194920471
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 43.70025221337707,
+                "mean_prob": 0.4855583579264119,
+                "min_prob": 0.48131639882854466,
+                "max_prob": 0.49068020542221125
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.59463066276918,
+                "mean_prob": 0.49549589625299084,
+                "min_prob": 0.49106338258232884,
+                "max_prob": 0.5001042091170537
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 45.3468100372718,
+                "mean_prob": 0.5038534448585755,
+                "min_prob": 0.5005227677666505,
+                "max_prob": 0.5075740514947605
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 45.98046781965108,
+                "mean_prob": 0.510894086885012,
+                "min_prob": 0.5076520852675696,
+                "max_prob": 0.5160414407695278
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 47.0589793534068,
+                "mean_prob": 0.5228775483711866,
+                "min_prob": 0.5164037325237859,
+                "max_prob": 0.5289337975847319
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 48.427933279677134,
+                "mean_prob": 0.5380881475519682,
+                "min_prob": 0.5293085692779416,
+                "max_prob": 0.5472711145801117
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 50.885420549021106,
+                "mean_prob": 0.56539356165579,
+                "min_prob": 0.5478978808193355,
+                "max_prob": 0.6100660946692551
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5010282113150095,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 614,
+          "rebuild_id": "rb_6af5e9bfdc5426cf",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.5011907508976595,
+          "n_missing_scores": 0,
+          "observed_rate": 0.5066666666666667,
+          "auc": 0.5444967994310099,
+          "gini": 0.08899359886201985,
+          "ks": 0.10295163584637268,
+          "brier": 0.24854455515954918,
+          "hosmer_lemeshow": {
+            "statistic": 7.480500548637664,
+            "p_value": 0.485784598768522,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 38.75922006458319,
+                "mean_prob": 0.43065800071759097,
+                "min_prob": 0.3737161574743666,
+                "max_prob": 0.4480106641518135
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 41.10715906604522,
+                "mean_prob": 0.4567462118449469,
+                "min_prob": 0.44890587434901846,
+                "max_prob": 0.46449256224826824
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 42.645885722903614,
+                "mean_prob": 0.47384317469892906,
+                "min_prob": 0.4647706301781102,
+                "max_prob": 0.4830070805000622
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 43.86070017433265,
+                "mean_prob": 0.48734111304814054,
+                "min_prob": 0.483255129591,
+                "max_prob": 0.49194505996414156
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.782685928470144,
+                "mean_prob": 0.4975853992052238,
+                "min_prob": 0.49211112119524925,
+                "max_prob": 0.5022021182947137
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 45.56845856140738,
+                "mean_prob": 0.5063162062378598,
+                "min_prob": 0.502794191325198,
+                "max_prob": 0.5105124640648754
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 46.4743237528462,
+                "mean_prob": 0.5163813750316245,
+                "min_prob": 0.5112456904206466,
+                "max_prob": 0.521216248614239
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 47.437409096819174,
+                "mean_prob": 0.5270823232979909,
+                "min_prob": 0.5212699812677312,
+                "max_prob": 0.5332338150476157
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 48.87132066038419,
+                "mean_prob": 0.5430146740042688,
+                "min_prob": 0.5346159885043651,
+                "max_prob": 0.5549472748024118
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 51.564512780101836,
+                "mean_prob": 0.5729390308900204,
+                "min_prob": 0.5557546169039843,
+                "max_prob": 0.5961191284233397
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5019334354516427,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.05819601434073104,
+          "psi_reference": "dataset:mdl_6af5e9bf59f53e3a_development",
+          "duration_ms": 1123,
+          "rebuild_id": "rb_6af5e9bfdc5426cf",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  },
+  {
+    "name": "SIM_SAS_RED_GINI_LT_030",
+    "actual_rag": "red",
+    "dimensions": {
+      "consistency": "green",
+      "performance": "red",
+      "stability": "green",
+      "fairness": "green"
+    },
+    "recommendation": "Do not approve: at least one dimension is red.",
+    "n_parity_records": 900,
+    "n_parity_mismatches": 0,
+    "llm_provider": "mock",
+    "native_r_sas_reference_verified": false,
+    "runs": [
+      {
+        "dataset_role": "development",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.49845777493916127,
+          "n_missing_scores": 0,
+          "observed_rate": 0.49333333333333335,
+          "auc": 0.5758801564722618,
+          "gini": 0.15176031294452352,
+          "ks": 0.14331436699857747,
+          "brier": 0.2462246590879488,
+          "hosmer_lemeshow": {
+            "statistic": 8.559377731941266,
+            "p_value": 0.38081704855408116,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 38.33108613313837,
+                "mean_prob": 0.4259009570348708,
+                "min_prob": 0.3847277858388994,
+                "max_prob": 0.45350581166812653
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 41.52407467755145,
+                "mean_prob": 0.4613786075283494,
+                "min_prob": 0.45382585564785693,
+                "max_prob": 0.46780483947548357
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 33.0,
+                "expected": 42.76234271938125,
+                "mean_prob": 0.47513714132645835,
+                "min_prob": 0.4683448866892499,
+                "max_prob": 0.4811464194920471
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 43.70025221337707,
+                "mean_prob": 0.4855583579264119,
+                "min_prob": 0.48131639882854466,
+                "max_prob": 0.49068020542221125
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.59463066276918,
+                "mean_prob": 0.49549589625299084,
+                "min_prob": 0.49106338258232884,
+                "max_prob": 0.5001042091170537
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 45.3468100372718,
+                "mean_prob": 0.5038534448585755,
+                "min_prob": 0.5005227677666505,
+                "max_prob": 0.5075740514947605
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 45.98046781965108,
+                "mean_prob": 0.510894086885012,
+                "min_prob": 0.5076520852675696,
+                "max_prob": 0.5160414407695278
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 47.0589793534068,
+                "mean_prob": 0.5228775483711866,
+                "min_prob": 0.5164037325237859,
+                "max_prob": 0.5289337975847319
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 48.427933279677134,
+                "mean_prob": 0.5380881475519682,
+                "min_prob": 0.5293085692779416,
+                "max_prob": 0.5472711145801117
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 50.885420549021106,
+                "mean_prob": 0.56539356165579,
+                "min_prob": 0.5478978808193355,
+                "max_prob": 0.6100660946692551
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5010282113150095,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.49333333333333335,
+                "mean_score": 0.4984577749391613,
+                "flag_rate": 0.49333333333333335,
+                "approval_rate": 0.5066666666666666,
+                "tpr": 0.5405405405405406,
+                "fpr": 0.4473684210526316,
+                "auc": 0.5758801564722618,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "duration_ms": 603,
+          "rebuild_id": "rb_6af5e9c2f7fd6f36",
+          "dataset_role": "development"
+        }
+      },
+      {
+        "dataset_role": "validation",
+        "metrics": {
+          "n_records": 900,
+          "score_mean": 0.5011907508976595,
+          "n_missing_scores": 0,
+          "observed_rate": 0.5066666666666667,
+          "auc": 0.5444967994310099,
+          "gini": 0.08899359886201985,
+          "ks": 0.10295163584637268,
+          "brier": 0.24854455515954918,
+          "hosmer_lemeshow": {
+            "statistic": 7.480500548637664,
+            "p_value": 0.485784598768522,
+            "df": 8,
+            "groups": 10,
+            "table": [
+              {
+                "group": 1,
+                "n": 90,
+                "observed": 36.0,
+                "expected": 38.75922006458319,
+                "mean_prob": 0.43065800071759097,
+                "min_prob": 0.3737161574743666,
+                "max_prob": 0.4480106641518135
+              },
+              {
+                "group": 2,
+                "n": 90,
+                "observed": 39.0,
+                "expected": 41.10715906604522,
+                "mean_prob": 0.4567462118449469,
+                "min_prob": 0.44890587434901846,
+                "max_prob": 0.46449256224826824
+              },
+              {
+                "group": 3,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 42.645885722903614,
+                "mean_prob": 0.47384317469892906,
+                "min_prob": 0.4647706301781102,
+                "max_prob": 0.4830070805000622
+              },
+              {
+                "group": 4,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 43.86070017433265,
+                "mean_prob": 0.48734111304814054,
+                "min_prob": 0.483255129591,
+                "max_prob": 0.49194505996414156
+              },
+              {
+                "group": 5,
+                "n": 90,
+                "observed": 42.0,
+                "expected": 44.782685928470144,
+                "mean_prob": 0.4975853992052238,
+                "min_prob": 0.49211112119524925,
+                "max_prob": 0.5022021182947137
+              },
+              {
+                "group": 6,
+                "n": 90,
+                "observed": 45.0,
+                "expected": 45.56845856140738,
+                "mean_prob": 0.5063162062378598,
+                "min_prob": 0.502794191325198,
+                "max_prob": 0.5105124640648754
+              },
+              {
+                "group": 7,
+                "n": 90,
+                "observed": 54.0,
+                "expected": 46.4743237528462,
+                "mean_prob": 0.5163813750316245,
+                "min_prob": 0.5112456904206466,
+                "max_prob": 0.521216248614239
+              },
+              {
+                "group": 8,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 47.437409096819174,
+                "mean_prob": 0.5270823232979909,
+                "min_prob": 0.5212699812677312,
+                "max_prob": 0.5332338150476157
+              },
+              {
+                "group": 9,
+                "n": 90,
+                "observed": 51.0,
+                "expected": 48.87132066038419,
+                "mean_prob": 0.5430146740042688,
+                "min_prob": 0.5346159885043651,
+                "max_prob": 0.5549472748024118
+              },
+              {
+                "group": 10,
+                "n": 90,
+                "observed": 48.0,
+                "expected": 51.564512780101836,
+                "mean_prob": 0.5729390308900204,
+                "min_prob": 0.5557546169039843,
+                "max_prob": 0.5961191284233397
+              }
+            ]
+          },
+          "fairness": {
+            "threshold": 0.5019334354516427,
+            "n": 900,
+            "reference_segment": "1",
+            "disparate_impact": 1.0,
+            "max_tpr_gap": 0.0,
+            "max_fpr_gap": 0.0,
+            "segments": {
+              "1": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              },
+              "2": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              },
+              "3": {
+                "n": 300,
+                "share": 0.3333333333333333,
+                "bad_rate": 0.5066666666666667,
+                "mean_score": 0.5011907508976596,
+                "flag_rate": 0.5066666666666667,
+                "approval_rate": 0.4933333333333333,
+                "tpr": 0.5460526315789473,
+                "fpr": 0.46621621621621623,
+                "auc": 0.5444967994310099,
+                "adverse_impact_ratio": 1.0
+              }
+            }
+          },
+          "psi_score": 0.05819601434073104,
+          "psi_reference": "dataset:mdl_6af5e9c222c46d72_development",
+          "duration_ms": 1170,
+          "rebuild_id": "rb_6af5e9c2f7fd6f36",
+          "dataset_role": "validation"
+        }
+      }
+    ]
+  }
+]
