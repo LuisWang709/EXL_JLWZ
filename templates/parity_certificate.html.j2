@@ -1,0 +1,56 @@
+{#- Parity certificate issued by the rebuild agent when a Python rebuild reproduces the legacy scores. -#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Parity certificate - {{ model.name }}</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:900px;margin:28px auto;padding:0 22px;color:#1d2433;line-height:1.45}
+h1{font-size:1.55em;margin-bottom:4px}h2{font-size:1.15em;margin-top:1.7em;border-bottom:1px solid #d5dae3;padding-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid #d5dae3;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef1f6;width:38%}.muted{color:#5b6475;font-size:.9em}
+.badge{display:inline-block;padding:3px 12px;border-radius:10px;font-weight:600;background:#d7f2df;color:#135c2b}
+.num{font-variant-numeric:tabular-nums}code{font-size:.9em}
+</style>
+</head>
+<body>
+<h1>Parity certificate</h1>
+<p class="muted">{{ model.name }} ({{ model.model_id }}) &middot; rebuild {{ rebuild.rebuild_id }} &middot; issued {{ issued_at }}</p>
+<p><span class="badge">PARITY PASSED</span></p>
+<p>The Python rebuild reproduces the legacy {{ source_language }} model's score for every record of the legacy
+sample within the tolerance below. The comparison was executed in the sandbox by the <code>run_parity</code> tool;
+the figures are copied from its result.</p>
+
+<h2>Result</h2>
+<table>
+<tr><th>Records compared</th><td class="num">{{ parity.n_records }}</td></tr>
+<tr><th>Records outside tolerance</th><td class="num">{{ parity.n_mismatches }}</td></tr>
+<tr><th>Largest absolute difference</th><td class="num">{{ max_abs_diff }}</td></tr>
+<tr><th>Tolerance (absolute, per record)</th><td class="num">{{ tolerance }}</td></tr>
+<tr><th>Attempts needed</th><td class="num">{{ rebuild.attempt }}</td></tr>
+<tr><th>Code written by</th><td>{{ generator_label }}</td></tr>
+</table>
+
+<h2>What was compared</h2>
+<table>
+<tr><th>Legacy model</th><td>{{ manifest.get("name", model.name) }}{% if manifest.get("algorithm") %} &middot; {{ manifest["algorithm"] }}{% endif %}</td></tr>
+<tr><th>Legacy score</th><td><code>{{ score_column }}</code> of the legacy export (fixture <code>{{ fixture_id }}</code>)</td></tr>
+<tr><th>Link function</th><td>{{ link }}</td></tr>
+<tr><th>Terms</th><td>{{ spec.n_numeric_terms }} numeric, {{ spec.n_categorical_terms }} categorical levels{% if spec.categorical_columns %} ({{ spec.categorical_columns | join(", ") }}; reference coding){% endif %}</td></tr>
+<tr><th>Rebuilt code</th><td><code>{{ rebuild.code.filename }}</code> &middot; SHA-256 <code>{{ rebuild.code.sha256 }}</code></td></tr>
+</table>
+
+{% if notes %}
+<h2>Design notes</h2>
+<ul>{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>
+{% endif %}
+
+<h2>Scope and limits</h2>
+<ul>
+<li>Parity is proven on the legacy sample only; behaviour on values outside that sample (new category levels,
+missing values) is covered by the data-quality gate before every run, not by this certificate.</li>
+<li>The certificate is bound to the code hash above: any change to the code requires a new parity run.</li>
+<li>Independent sign-off (gate H2) is still required before the rebuilt model is deployed.</li>
+</ul>
+</body>
+</html>

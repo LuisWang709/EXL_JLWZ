@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import pandas as pd
@@ -10,6 +11,7 @@ import streamlit as st
 from mrf.ui.common import STATE_LABEL, WAITING, api, go, guard, link, when
 
 DONE = {"monitoring", "deployed", "failed"}
+DATA_TYPES = ["csv", "parquet", "xlsx", "json"]
 
 
 def _model_names(models: list[dict[str, Any]]) -> dict[str, str]:
@@ -35,15 +37,51 @@ def page() -> None:
             name = st.text_input("Model name", placeholder="e.g. M001 PD scorecard")
             owner = st.text_input("Owner (optional)")
             files = st.file_uploader(
-                "Model code and any related files", accept_multiple_files=True, type=["sas", "r", "py", "txt", "csv"]
+                "Model code, plus the legacy package if you have one (manifest.json, input_sample.csv, "
+                "legacy_scores.csv, coefficients.json)",
+                accept_multiple_files=True,
+                type=["sas", "r", "py", "txt", "csv", "json"],
             )
+            st.caption(
+                "The rebuild is proven against the legacy scores in the package. Models named M001, M002 or M004 "
+                "use the built-in demo packages."
+            )
+            dev = st.file_uploader("Development data (optional)", type=DATA_TYPES, key="ds_dev")
+            oot = st.file_uploader("Hold-out / out-of-time data (optional)", type=DATA_TYPES, key="ds_oot")
+            schema = st.selectbox("Data schema for the quality check", ["(none)", "german_credit_clean"])
             submitted = st.form_submit_button("Start pipeline", type="primary")
         if submitted:
             if not name.strip() or not files:
                 st.error("Give the model a name and add at least one file.")
             else:
                 uploads = [(f.name, f.getvalue(), f.type or "text/plain") for f in files]
-                started = guard(lambda: c.start_pipeline(name.strip(), uploads, owner.strip() or None), "Upload")
+                schema_name = None if schema == "(none)" else schema
+                dataset_ids: list[str] = []
+                failed = False
+                for upload, role in ((dev, "development"), (oot, "out_of_time")):
+                    if upload is None:
+                        continue
+                    content, fname = upload.getvalue(), upload.name
+                    ds = guard(
+                        partial(
+                            c.upload_dataset,
+                            fname,
+                            content,
+                            role=role,
+                            schema_name=schema_name,
+                            name=f"{name.strip()} {role}",
+                        ),
+                        f"Dataset {fname}",
+                    )
+                    if ds is None:
+                        failed = True
+                        break
+                    dataset_ids.append(ds["dataset_id"])
+                started = None
+                if not failed:
+                    started = guard(
+                        lambda: c.start_pipeline(name.strip(), uploads, owner.strip() or None, dataset_ids), "Upload"
+                    )
                 if started:
                     st.session_state["pipeline_id"] = started["pipeline_id"]
                     st.success(f"Pipeline {started['pipeline_id']} started for model {started['model_id']}.")

@@ -27,6 +27,9 @@ COPY config ./config
 COPY templates ./templates
 COPY kb ./kb
 COPY src ./src
+# built-in legacy model packages: sources + parity fixtures (run_parity needs them at runtime)
+COPY models ./models
+COPY tests/fixtures ./tests/fixtures
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra data --extra azure --extra mlops
 

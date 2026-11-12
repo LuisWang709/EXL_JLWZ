@@ -104,13 +104,29 @@ def _rebuilds(model_id: str) -> None:
                 "mismatches": parity.get("n_mismatches"),
                 "max abs diff": parity.get("max_abs_diff"),
                 "tolerance": parity.get("tolerance"),
+                "written by": {"llm": "LLM", "template": "transcription", "none": "not needed"}.get(
+                    str((parity.get("detail") or {}).get("generator")), ""
+                ),
                 "code": (r.get("code") or {}).get("filename", ""),
             }
         )
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-    feedback = (rebuilds[0].get("feedback") or [])[:5]
-    for item in feedback:
+    latest = rebuilds[0]
+    skipped = ((latest.get("parity") or {}).get("detail") or {}).get("skipped")
+    if skipped:
+        st.info(f"No translation: {skipped}.")
+    for item in (latest.get("feedback") or [])[:5]:
         st.caption(f"• {item}")
+    if latest.get("certificate"):
+        with st.expander("Parity certificate", expanded=True):
+            page = guard(lambda: c.rebuild_certificate(model_id, latest["rebuild_id"]), "Certificate")
+            if page:
+                components.html(page, height=620, scrolling=True)
+    if latest.get("code") and not skipped:
+        with st.expander("Rebuilt Python code"):
+            code = guard(lambda: c.rebuild_code(model_id, latest["rebuild_id"]), "Code")
+            if code:
+                st.code(code, language="python")
 
 
 def _runs(model_id: str) -> None:

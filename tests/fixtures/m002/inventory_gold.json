@@ -1,0 +1,14 @@
+{
+  "language": "r",
+  "algorithm": "logistic_regression",
+  "purpose": "pd",
+  "target": "default_next_month",
+  "features": [
+    "limit_bal",
+    "util",
+    "pay_0",
+    "pay_2",
+    "age",
+    "education"
+  ]
+}

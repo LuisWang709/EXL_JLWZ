@@ -1,0 +1,15 @@
+{
+  "language": "python",
+  "algorithm": "gradient_boosting",
+  "purpose": "behavioural_score",
+  "target": "serious_dlq_2yrs",
+  "features": [
+    "revolving_utilization",
+    "age",
+    "past_due_30_59",
+    "debt_ratio",
+    "monthly_income",
+    "open_credit_lines",
+    "past_due_90"
+  ]
+}

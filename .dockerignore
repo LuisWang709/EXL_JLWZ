@@ -21,7 +21,9 @@ htmlcov/
 !.env.example
 *.pem
 *.key
-tests/
+tests/*
+!tests/fixtures/
+!tests/fixtures/**
 docs/
 .claude/
 .DS_Store
