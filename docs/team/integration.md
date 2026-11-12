@@ -11,10 +11,11 @@ uv run python -m mrf.run --model M001 --auto-approve   # 真实模块；未提�
 uv run uvicorn mrf.api.app:app --reload                # http://localhost:8000/docs，MCP 在 /mcp/
 ```
 
-## 1. 实现你的 Protocol（约定路径即可自动接入）
+## 1. 实现你的 Protocol（显式接入）
 
-编排器启动时会按下表的路径 import 你的类，**用无参构造函数**实例化。仅本地环境在模块不存在时允许 stub；
-dev/demo 缺少任何实现或设置 `MRF_STUBS` 都会报错，`/readyz` 检查模块能否加载。
+编排器在 `mrf.orchestrator.registry._implementations` 中显式引用下表的类，**用无参构造函数**实例化。
+更换实现时修改这个装配点；缺少实现会直接报错，任何环境都不会隐式回退为 stub。
+仅本地可以显式选择 `MRF_STUBS`；dev/demo 禁止该设置，`/readyz` 检查实现能否加载。
 
 | 槽位 | 路径 `module:Class` | 负责人 |
 | --- | --- | --- |

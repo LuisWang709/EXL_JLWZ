@@ -56,16 +56,24 @@ async def gather(model: ModelRecord) -> dict[str, Any]:
     metrics = await repo.find(
         Collections.METRICS, MonitoringMetric, where={"model_id": model.model_id}, page_size=10_000, order_by="at"
     )
-    alerts = await repo.find(
-        Collections.ALERTS, Alert, where={"model_id": model.model_id}, page_size=MAX_ALERTS, order_by="-created_at"
-    )
+    alerts: list[Alert] = []
+    page = 1
+    while True:
+        chunk = await repo.find(
+            Collections.ALERTS, Alert, where={"model_id": model.model_id}, page=page,
+            page_size=100, order_by="-created_at",
+        )
+        alerts.extend(chunk.items)
+        if page * 100 >= chunk.pagination.total or not chunk.items:
+            break
+        page += 1
     schedule = await repo.get_or_none(Collections.SCHEDULES, model.model_id, Schedule)
     run_id = model.tags.get(TAG_BASELINE_RUN)
     baseline_run = await repo.get_or_none(Collections.RUNS, run_id, Run) if run_id else None
     gini = (baseline_run.metrics if baseline_run else {}).get("gini")
     return {
         "metrics": sorted(metrics.items, key=lambda m: m.at),
-        "alerts": alerts.items,
+        "alerts": alerts,
         "schedule": schedule,
         "baseline_gini": float(gini) if isinstance(gini, int | float) and not isinstance(gini, bool) else None,
         "baseline_run_id": run_id,
@@ -114,7 +122,8 @@ def assemble(
     put("summary.batches", len(metrics), "monitoring_metrics")
     for status, n in counts.items():
         put(f"summary.{status}", n, "monitoring_metrics")
-    put("summary.alerts_open", sum(1 for a in alerts if not a.acknowledged), "alerts")
+    put("summary.alerts_open", sum(1 for a in alerts if a.status != "closed"), "alerts.status != closed")
+    put("summary.alerts_unacknowledged", sum(1 for a in alerts if not a.acknowledged), "alerts.acknowledged == false")
 
     latest = metrics[-1] if metrics else None
     top: list[dict[str, Any]] = []
@@ -129,17 +138,21 @@ def assemble(
         put("baseline.gini", data["baseline_gini"], f"runs:{data['baseline_run_id']}")
         if latest.gini is not None and data["baseline_gini"] is not None:
             put("latest.gini_drop", data["baseline_gini"] - latest.gini, "baseline.gini - latest Gini")
-        if latest.status == "red":
+        rejected = any(a.kind == "data_quality" and a.severity == "red" and
+                       a.detail.get("batch_id") == latest.batch_id for a in alerts)
+        if rejected:
+            findings.append("The latest batch failed data quality checks; it did not trigger model re-validation.")
+        elif latest.status == "red":
             findings.append(
                 "The latest batch is red. The model needs re-validation; the monitoring job sends the pipeline back "
                 "to the usability run when the model is in production."
             )
         elif latest.status == "amber":
-            findings.append("The latest batch is amber: drift is above the warning level. Watch the next batches.")
+            findings.append("The latest batch is amber: review drift, quality warnings and any unassessed dimensions.")
         else:
             findings.append("The latest batch is green: no material drift against the baseline.")
-        if latest.row_count is not None and not latest.psi:
-            findings.append("The latest batch was rejected by the data quality checks, so no drift was measured.")
+        if not latest.psi:
+            findings.append("No drift was measured for the latest batch. Consult its alert evidence.")
         if data["baseline_gini"] is None:
             findings.append("No baseline Gini is recorded, so the performance comparison is not available.")
     else:
@@ -157,8 +170,11 @@ def assemble(
                 "kind": a.kind,
                 "message": a.message,
                 "acknowledged": a.acknowledged,
+                "status": a.status,
+                "resolution": a.resolution,
+                "handled_by": a.closed_by or a.acknowledged_by,
             }
-            for a in alerts
+            for a in alerts[:MAX_ALERTS]
         ],
         "schedule": data["schedule"],
         "findings": findings,

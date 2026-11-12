@@ -50,6 +50,12 @@ def _detail(pipeline_id: str) -> None:
     if p.get("last_error"):
         err = p["last_error"]
         st.error(f"Last error {err.get('code', '')}: {err.get('message', err)}")
+    if state == "monitoring":
+        st.info("Pipeline complete. "
+                "Monitoring processes new registered batches on a timer or from the Monitoring page.")
+    if p.get("artifacts", {}).get("revalidation_dataset_ids"):
+        st.warning("Revalidation evidence uses the triggering monitoring batch: "
+                   + ", ".join(p["artifacts"]["revalidation_dataset_ids"]))
 
     left, right = st.columns([3, 2])
     with left:
@@ -92,6 +98,8 @@ def page() -> None:
     if pipeline_id is None:
         st.info("No pipeline yet. Start one from the Overview page.")
         return
+    if st.button("Refresh pipeline", key="refresh-pipeline"):
+        st.rerun()
     state = next((p["state"] for p in pipes if p["pipeline_id"] == pipeline_id), "")
     live = state not in TERMINAL | WAITING
     st.caption("Refreshes every 5 seconds while the pipeline is working." if live else "")

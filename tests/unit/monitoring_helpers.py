@@ -53,7 +53,7 @@ class RevalidationSpy:
         self.calls: list[tuple[str, str]] = []
         self.already_running = already_running
 
-    async def __call__(self, model_id: str, reason: str) -> Job:
+    async def __call__(self, model_id: str, reason: str, dataset_id: str | None = None) -> Job:
         self.calls.append((model_id, reason))
         if self.already_running:
             raise MRFError(MRFCode.INVALID_STATE, "pipeline is usability_run, expected monitoring")

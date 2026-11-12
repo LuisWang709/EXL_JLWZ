@@ -137,6 +137,7 @@ def signed_in() -> bool:
     try:
         client.models()
     except ApiError as exc:
+        client.close()
         st.error(f"Cannot use the API: {exc}")
         return False
     st.session_state["api"] = client
@@ -158,7 +159,45 @@ def guard(fn: Callable[[], T], what: str) -> T | None:
             st.info(f"{what}: not available in this API version yet.")
         else:
             st.error(f"{what} failed — {exc}")
+            if exc.request_id:
+                st.caption(f"Request ID: {exc.request_id}")
         return None
+
+
+def flash(message: str) -> None:
+    """Keep success feedback across a navigation / full-page rerun."""
+    st.session_state["flash"] = message
+
+
+def show_flash() -> None:
+    message = st.session_state.pop("flash", None)
+    if message:
+        st.success(message)
+
+
+def track_job(key: str, label: str) -> dict[str, Any] | None:
+    job_id = st.session_state.get(key)
+    if not job_id:
+        return None
+    job = guard(lambda: api().job(job_id), label)
+    if job is None:
+        st.info("The task is still tracked. Refresh when the connection returns; do not submit it again.")
+        return None
+    busy = job.get("status") in {"queued", "running"}
+    was_busy = st.session_state.get(key + "-active", False)
+    st.session_state[key + "-active"] = busy
+    if was_busy and not busy:
+        st.rerun()  # refresh artefacts and enable actions once; never resubmit the job
+    if busy:
+        st.info(f"{label}: {job['status']}. You can leave this page; the task continues in the background.")
+        st.progress(max(0.0, min(float(job.get("progress") or 0), 1.0)))
+    elif job.get("status") == "failed":
+        failure = job.get("error") or {}
+        st.error(f"{label} failed: {failure.get('code', '')} {failure.get('message', '')}")
+    elif job.get("status") == "cancelled":
+        st.warning(f"{label} was cancelled.")
+    st.caption(f"Task: {job_id}")
+    return job
 
 
 def go(name: str) -> None:

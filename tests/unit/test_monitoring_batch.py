@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -97,6 +98,65 @@ async def test_same_batch_is_processed_once(seeded: Path, monkeypatch: pytest.Mo
     assert first == second and len(runner.calls) == 1 and len(await alerts()) == 1
 
 
+async def test_concurrent_requests_do_not_duplicate_scoring_or_alerts(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = FakeRunner()
+    install(monkeypatch, runner, RevalidationSpy())
+    await add_dataset(seeded, "concurrent", frame(shift=0.2), role="monitoring_batch", model_id="mdl_t")
+    first, second = await asyncio.gather(process_batch("mdl_t", "concurrent"), process_batch("mdl_t", "concurrent"))
+    assert first == second and len(runner.calls) == 1 and len(await alerts()) == 1
+
+
+async def test_quality_warning_is_visible_and_does_not_revalidate(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spy = RevalidationSpy()
+    install(monkeypatch, FakeRunner(), spy)
+    await add_dataset(seeded, "warning", frame(missing=0.1), role="monitoring_batch", model_id="mdl_t")
+    metric = await process_batch("mdl_t", "warning")
+    assert metric.status == "amber" and not spy.calls
+    assert [(a.kind, a.severity) for a in await alerts()] == [("data_quality", "amber")]
+
+
+async def test_no_evidence_is_unassessed_and_runner_psi_is_reused(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mrf.monitoring import batch
+
+    class Scored(FakeRunner):
+        async def run(self, ctx: StepContext, dataset_id: str, kind: str = "usability") -> Run:
+            run = await super().run(ctx, dataset_id, kind)
+            run.metrics["psi_score"] = 0.05
+            return run
+
+    install(monkeypatch, Scored(), RevalidationSpy())
+    monkeypatch.setattr(batch, "pick_features", lambda *args: [])
+    monkeypatch.setattr(batch, "run_scores", lambda *args: pytest.fail("runner PSI must not be recalculated"))
+    await add_dataset(seeded, "scored", frame(), role="monitoring_batch", model_id="mdl_t")
+    assert (await process_batch("mdl_t", "scored")).psi == {"__score__": 0.05}
+    install(monkeypatch, FakeRunner(), RevalidationSpy())
+    monkeypatch.setattr(batch, "run_scores", lambda *args: None)
+    await add_dataset(seeded, "unassessed", frame(), role="monitoring_batch", model_id="mdl_t")
+    metric = await process_batch("mdl_t", "unassessed")
+    assert metric.status == "amber" and not metric.psi
+    assert "unassessed" in (await alerts())[0].message
+
+
+async def test_pending_red_batch_retries_after_previous_h2(seeded: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    spy = RevalidationSpy(already_running=True)
+    install(monkeypatch, FakeRunner(), spy)
+    await add_dataset(seeded, "waiting", frame(shift=0.5), role="monitoring_batch", model_id="mdl_t")
+    await process_batch("mdl_t", "waiting")
+    await get_repo().put(Collections.SCHEDULES, "mdl_t", Schedule(model_id="mdl_t", cron="0 * * * *"))
+    spy.already_running = False
+    assert (await process_pending())["processed"] == []
+    assert (await alerts())[0].detail["revalidation_job_id"] == "job_reval"
+    count = len(spy.calls)
+    await process_pending()
+    assert len(spy.calls) == count
+
+
 async def test_model_without_baseline_is_invalid_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install(monkeypatch, FakeRunner(), RevalidationSpy())
     await add_model(baseline=None)
@@ -104,6 +164,11 @@ async def test_model_without_baseline_is_invalid_state(tmp_path: Path, monkeypat
     with pytest.raises(MRFError) as err:
         await process_batch("mdl_t", "ds_x")
     assert err.value.code == MRFCode.INVALID_STATE
+    assert [(a.kind, a.severity) for a in await alerts()] == [("system", "red")]
+    # A stale baseline tag is also a system fault, detected before invoking the runner.
+    await add_model(baseline="missing_dataset")
+    with pytest.raises(MRFError, match="baseline dataset missing_dataset is unavailable"):
+        await process_batch("mdl_t", "ds_x")
 
 
 async def test_process_pending_walks_enabled_schedules(seeded: Path, monkeypatch: pytest.MonkeyPatch) -> None:

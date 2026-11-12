@@ -8,7 +8,7 @@ from typing import Any
 import streamlit as st
 import streamlit.components.v1 as components
 
-from mrf.ui.common import api, chip, guard, when
+from mrf.ui.common import api, chip, flash, guard, when
 
 GATE_TITLE = {
     "H1": "H1 · approve the model documentation",
@@ -20,6 +20,9 @@ RESUME_STATES = ["classified", "doc_drafting", "rebuilding", "usability_run"]
 
 def _evidence(review: dict[str, Any]) -> None:
     c, payload, model_id = api(), review.get("payload") or {}, review["model_id"]
+    if payload.get("revalidation_dataset_ids"):
+        st.warning("Monitoring-triggered revalidation. Review the new batch, not just the original validation data.")
+        st.write("Triggering batches: " + ", ".join(payload["revalidation_dataset_ids"]))
     doc_id = payload.get("doc_id")
     if doc_id:
         ratings = guard(lambda: c.ratings(model_id, doc_id), "Ratings") or []
@@ -70,13 +73,15 @@ def _decide(review: dict[str, Any]) -> None:
             lambda: c.decide(rid, "approve" if ok else "reject", comment.strip(), target or None), "Decision"
         )
         if result is not None:
-            st.success(f"Recorded by {c.operator}. The pipeline continues in the background.")
+            flash(f"Decision recorded by {c.operator}. The pipeline continues in the background.")
             st.rerun()
 
 
 def page() -> None:
     c = api()
     st.title("Review queue")
+    if st.button("Refresh review queue", key="refresh-reviews"):
+        st.rerun()
     gate = st.segmented_control("Gate", ["All", "H1", "H2", "manual"], default="All")
     pending = guard(lambda: c.reviews("pending", None if gate in (None, "All") else gate), "Review queue")
     if pending is None:

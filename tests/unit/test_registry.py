@@ -18,18 +18,11 @@ def test_deployment_rejects_forced_stubs(monkeypatch: pytest.MonkeyPatch, env: s
         registry.Registry.discover()
 
 
-def test_missing_agent_only_falls_back_locally(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(registry.IMPLEMENTATIONS, "classifier", "mrf.missing_agent:Missing")
-    assert registry.Registry.discover().describe()["classifier"] == "StubClassifier"
-    monkeypatch.setenv("MRF_ENV", "dev")
-    get_settings.cache_clear()
-    with pytest.raises(MRFError, match="required agent"):
-        registry.Registry.discover()
+def test_real_implementations_are_explicit() -> None:
+    assert not any(name.startswith("Stub") for name in registry.Registry.discover().describe().values())
 
 
-def test_missing_class_rejected_in_cloud(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MRF_ENV", "demo")
-    monkeypatch.setitem(registry.IMPLEMENTATIONS, "classifier", "mrf.agents.classify.agent:Missing")
-    get_settings.cache_clear()
-    with pytest.raises(MRFError, match="required agent"):
+def test_unknown_stub_slot_is_not_silently_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MRF_STUBS", "runer")
+    with pytest.raises(MRFError, match="unknown stub slots"):
         registry.Registry.discover()

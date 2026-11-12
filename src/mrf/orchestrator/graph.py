@@ -201,7 +201,10 @@ class Orchestrator:
         log.warning("checkpoint for %s missing; re-entering %s from the stored state", pipeline_id, node)
         return await self.reenter(pipeline_id, node)
 
-    async def reenter(self, pipeline_id: str, node: str, feedback: list[str] | None = None) -> RunOutcome:
+    async def reenter(
+        self, pipeline_id: str, node: str, feedback: list[str] | None = None,
+        artifacts: dict[str, Any] | None = None,
+    ) -> RunOutcome:
         """Start a new run of the thread at ``node`` (drift re-validation, lost checkpoint).
 
         State comes from the checkpoint when present, else from the Pipeline document (attempts, artifacts,
@@ -217,7 +220,7 @@ class Orchestrator:
             "model_id": p.model_id,
             "attempts": dict(prev.get("attempts") or p.attempts),
             "feedback": feedback if feedback is not None else list(prev.get("feedback") or []),
-            "artifacts": dict(prev.get("artifacts") or p.artifacts),
+            "artifacts": {**(prev.get("artifacts") or p.artifacts), **(artifacts or {})},
             "resume_target": node,
         }
         if node == "escalate":
@@ -459,21 +462,27 @@ class Orchestrator:
         p = await self._pipeline(pid)
         ctx = await self._ctx(s)
         run_ids: list[str] = []
-        for ds in p.dataset_ids:
+        datasets = ctx.artifacts.get("revalidation_dataset_ids") or p.dataset_ids
+        for ds in dict.fromkeys(datasets):
             run = await self._call("usability_run", self.registry.runner.run(ctx, ds, "usability"))
             await self.repo.put(Collections.RUNS, run.run_id, run)
             run_ids.append(run.run_id)
-        if not p.dataset_ids:
+        if not datasets:
             await self._audit(pid, "usability_run", "no dataset registered for this pipeline; run skipped")
         return Command(goto="validation_report", update={"artifacts": {**s.get("artifacts", {}), "run_ids": run_ids}})
 
     async def n_validation_report(self, s: GraphState) -> Command[Any]:
         ctx = await self._ctx(s)
         ids: dict[str, str] = {}
-        for kind in ("analysis", "validation"):
-            report = await self._call("validation_report", self.registry.report_builder.build(ctx, kind))
+        builder = self.registry.report_builder
+        build_many = getattr(builder, "build_many", None)
+        if build_many is not None:
+            reports = await self._call("validation_report", build_many(ctx, ["analysis", "validation"]))
+        else:  # test doubles / third-party Protocol implementations retain the single-view API
+            reports = [await self._call("validation_report", builder.build(ctx, k)) for k in ("analysis", "validation")]
+        for report in reports:
             await self.repo.put(Collections.REPORTS, report.report_id, report)
-            ids[f"{kind}_report_id"] = report.report_id
+            ids[f"{report.type}_report_id"] = report.report_id
         return Command(goto="gate_h2", update={"artifacts": {**s.get("artifacts", {}), **ids}})
 
     async def n_gate_h2(self, s: GraphState) -> Command[Any]:
@@ -485,7 +494,9 @@ class Orchestrator:
             Gate.H2,
             anchor=str(arts.get("validation_report_id")),
             reason="Validation report ready; independent sign-off required (H2)",
-            payload={k: arts.get(k) for k in ("rebuild_id", "run_ids", "analysis_report_id", "validation_report_id")},
+            payload={k: arts.get(k) for k in (
+                "rebuild_id", "run_ids", "analysis_report_id", "validation_report_id", "revalidation_dataset_ids",
+            )},
         )
         decision = recorded_decision(review) or interrupt({"review_id": review.review_id, "gate": Gate.H2.value})
         if decision.get("decision") == "reject":

@@ -65,5 +65,7 @@ async def resume_pipeline(job: Job) -> dict[str, Any]:
 @register_handler("pipeline_reenter")
 async def reenter_pipeline(job: Job) -> dict[str, Any]:
     orch = await get_orchestrator()
-    outcome = await orch.reenter(job.resource["pipeline_id"], job.payload["node"], job.payload.get("feedback"))
+    outcome = await orch.reenter(
+        job.resource["pipeline_id"], job.payload["node"], job.payload.get("feedback"), job.payload.get("artifacts")
+    )
     return _result(outcome)

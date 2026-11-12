@@ -18,6 +18,7 @@ class ApiError(Exception):
     code: str
     message: str
     detail: Any = None
+    request_id: str | None = None
 
     def __str__(self) -> str:
         return f"{self.code}: {self.message}"
@@ -51,21 +52,29 @@ class ApiClient:
             raise ApiError(resp.status_code, f"HTTP-{resp.status_code}", resp.text[:300]) from exc
         if resp.status_code >= 400 or body.get("status") == "error":
             errors = body.get("errors") or [{}]
-            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", ""), errors)
+            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", ""),
+                           errors, body.get("request_id") or resp.headers.get("X-Request-ID"))
         return body
 
     def data(self, method: str, path: str, **kw: Any) -> Any:
         return self._call(method, path, **kw).get("data")
 
     def text(self, path: str, **params: Any) -> str:
-        resp = self._http.get(path, params=params)
+        try:
+            resp = self._http.get(path, params=params)
+        except httpx.HTTPError as exc:
+            raise ApiError(0, "NETWORK", "The API connection was interrupted. Retry the request.") from exc
         if resp.status_code >= 400:
             try:
                 body = resp.json()
             except ValueError:
                 body = {}
-            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", resp.text))
+            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", resp.text),
+                           request_id=body.get("request_id") or resp.headers.get("X-Request-ID"))
         return resp.text
+
+    def close(self) -> None:
+        self._http.close()
 
     def items(self, path: str, **params: Any) -> tuple[list[dict[str, Any]], int]:
         """First page of a paged list (max 100 items) and the total."""
@@ -186,14 +195,32 @@ class ApiClient:
     def metrics(self, model_id: str) -> list[dict[str, Any]]:
         return list((self.data("GET", f"/api/v1/monitoring/models/{model_id}/metrics") or {}).get("items", []))
 
-    def alerts(self, model_id: str | None = None, acknowledged: bool | None = None) -> tuple[list[dict[str, Any]], int]:
-        params: dict[str, Any] = {"model_id": model_id}
+    def alerts(
+        self, model_id: str | None = None, acknowledged: bool | None = None, status: str | None = None,
+        page: int = 1, page_size: int = 25,
+    ) -> tuple[list[dict[str, Any]], int]:
+        params: dict[str, Any] = {"model_id": model_id, "status": status, "page": page, "page_size": page_size}
         if acknowledged is not None:
             params["acknowledged"] = str(acknowledged).lower()
         return self.items("/api/v1/monitoring/alerts", **params)
 
-    def put_schedule(self, model_id: str, cron: str, enabled: bool) -> dict[str, Any]:
+    def acknowledge_alert(self, alert_id: str) -> dict[str, Any]:
+        return dict(self.data("POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge",
+                              headers={"X-Operator": self.operator}))
+
+    def close_alert(self, alert_id: str, resolution: str) -> dict[str, Any]:
+        return dict(self.data("POST", f"/api/v1/monitoring/alerts/{alert_id}/close",
+                              json={"resolution": resolution}, headers={"X-Operator": self.operator}))
+
+    def schedule(self, model_id: str) -> dict[str, Any]:
+        return dict(self.data("GET", f"/api/v1/monitoring/schedules/{model_id}"))
+
+    def put_schedule(
+        self, model_id: str, cron: str, enabled: bool, report_types: list[str] | None = None,
+    ) -> dict[str, Any]:
         body = {"cron": cron, "enabled": enabled}
+        if report_types is not None:
+            body["report_types"] = report_types
         return dict(self.data("PUT", f"/api/v1/monitoring/schedules/{model_id}", json=body))
 
     def monitoring_run(self, model_id: str | None = None, report: bool = False) -> dict[str, Any]:

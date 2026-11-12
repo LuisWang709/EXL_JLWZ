@@ -14,9 +14,11 @@ queue live there, so a separate container could not see them. The Container Apps
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from weakref import WeakKeyDictionary
 
 from mrf.contracts.agents import ModelRunner, StepContext
 from mrf.contracts.models import (
@@ -31,17 +33,17 @@ from mrf.contracts.models import (
     Schedule,
 )
 from mrf.core import MRFCode, MRFError
-from mrf.core.ids import new_id
 from mrf.jobs import register_handler
 from mrf.monitoring.cron import fired_between
 from mrf.monitoring.drift import classify, compute_psi, pick_features
-from mrf.monitoring.frames import load_frame, run_scores
+from mrf.monitoring.frames import frame_scope, load_frame, run_scores
 from mrf.monitoring.quality import QualityCheckerImpl
 from mrf.monitoring.registrar import TAG_BASELINE_DATASET, TAG_BASELINE_RUN
 from mrf.monitoring.report import generate as generate_report
 from mrf.storage import Collections, get_repo
 
 log = logging.getLogger(__name__)
+_locks: WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, asyncio.Lock]] = WeakKeyDictionary()
 
 
 def metric_key(model_id: str, dataset_id: str) -> str:
@@ -49,9 +51,9 @@ def metric_key(model_id: str, dataset_id: str) -> str:
 
 
 def _runner() -> ModelRunner:
-    from mrf.orchestrator.registry import Registry
+    from mrf.agents.rebuild.runner import ModelRunnerImpl
 
-    return Registry.discover().runner
+    return ModelRunnerImpl()
 
 
 def _number(value: Any) -> float | None:
@@ -64,8 +66,13 @@ def _missing_by_column(checks: list[QualityCheck]) -> dict[str, float]:
 
 
 async def _alert(model_id: str, severity: str, kind: str, message: str, detail: dict[str, Any]) -> Alert:
+    key = f"{model_id}:{detail.get('batch_id')}:{kind}"
+    alert_id = "alert_" + hashlib.sha256(key.encode()).hexdigest()[:24]
+    existing = await get_repo().get_or_none(Collections.ALERTS, alert_id, Alert)
+    if existing is not None:
+        return existing
     alert = Alert(
-        alert_id=new_id("alert"),
+        alert_id=alert_id,
         model_id=model_id,
         severity=severity,  # type: ignore[arg-type]
         kind=kind,  # type: ignore[arg-type]
@@ -79,12 +86,14 @@ async def _alert(model_id: str, severity: str, kind: str, message: str, detail: 
     return alert
 
 
-async def _revalidate(model_id: str, reasons: list[str]) -> str | None:
+async def _revalidate(model_id: str, dataset_id: str, reasons: list[str]) -> str | None:
     """Job id of the re-validation, or None if the pipeline is not in ``monitoring`` (already re-validating)."""
     from mrf.orchestrator.service import trigger_revalidation
 
     try:
-        job = await trigger_revalidation(model_id, reason="; ".join(reasons) or "drift above threshold")
+        job = await trigger_revalidation(
+            model_id, reason="; ".join(reasons) or "drift above threshold", dataset_id=dataset_id
+        )
     except MRFError as exc:
         if exc.code != MRFCode.INVALID_STATE:
             raise
@@ -94,8 +103,28 @@ async def _revalidate(model_id: str, reasons: list[str]) -> str | None:
 
 
 async def process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
+    model_locks = _locks.setdefault(asyncio.get_running_loop(), {})
+    async with model_locks.setdefault(model_id, asyncio.Lock()):
+        with frame_scope():
+            try:
+                return await _process_batch(model_id, dataset_id)
+            except MRFError as exc:
+                if exc.code not in {MRFCode.DATA_QUALITY_FAILED, MRFCode.NOT_FOUND, MRFCode.INPUT_BODY}:
+                    await _alert(model_id, "red", "system", "Monitoring could not complete: " + exc.message,
+                                 {"batch_id": dataset_id, "code": exc.code.value})
+                raise
+            except Exception:
+                await _alert(model_id, "red", "system", "Monitoring failed unexpectedly; inspect the task error.",
+                             {"batch_id": dataset_id, "code": MRFCode.INTERNAL.value})
+                raise
+
+
+async def _process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
     repo = get_repo()
     model = await repo.get(Collections.MODELS, model_id, ModelRecord)
+    ds = await repo.get(Collections.DATASETS, dataset_id, Dataset)
+    if ds.model_id != model_id or ds.role != "monitoring_batch":
+        raise MRFError(MRFCode.INPUT_BODY, "select a monitoring batch associated with this model", field="dataset_id")
     key = metric_key(model_id, dataset_id)
     done = await repo.get_or_none(Collections.METRICS, key, MonitoringMetric)
     if done is not None:  # idempotent: one metric (and one set of alerts) per batch
@@ -114,14 +143,19 @@ async def process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
             missing_rate=_missing_by_column(quality.checks),
             status="red",
         )
-        await repo.put(Collections.METRICS, key, rejected)  # recorded once, so the next tick does not re-alert
         await _alert(model_id, "red", "data_quality", f"batch {dataset_id} rejected: {', '.join(failed)}", rejection)
+        await repo.put(Collections.METRICS, key, rejected)
         raise MRFError(MRFCode.DATA_QUALITY_FAILED, f"batch {dataset_id} failed: {', '.join(failed)}", detail=rejection)
 
     # 2. score the batch with the rebuilt model (A2)
     baseline_id = model.tags.get(TAG_BASELINE_DATASET)
     if not baseline_id:
+        await _alert(model_id, "red", "system", "Monitoring baseline is missing; configure it before processing.",
+                     {"batch_id": dataset_id})
         raise MRFError(MRFCode.INVALID_STATE, f"{model_id} has no monitoring baseline - is it registered?")
+    baseline = await repo.get_or_none(Collections.DATASETS, baseline_id, Dataset)
+    if baseline is None:
+        raise MRFError(MRFCode.INVALID_STATE, f"monitoring baseline dataset {baseline_id} is unavailable")
     baseline_run_id = model.tags.get(TAG_BASELINE_RUN)
     ctx = StepContext(
         pipeline_id=model.pipeline_id or "",
@@ -133,22 +167,31 @@ async def process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
     await repo.put(Collections.RUNS, run.run_id, run)
 
     # 3. drift vs the baseline (PSI/CSI from A3's mrf.validation)
-    ds = await repo.get(Collections.DATASETS, dataset_id, Dataset)
-    baseline = await repo.get(Collections.DATASETS, baseline_id, Dataset)
     baseline_run = await repo.get_or_none(Collections.RUNS, baseline_run_id, Run) if baseline_run_id else None
     base_df, batch_df = await asyncio.gather(asyncio.to_thread(load_frame, baseline), asyncio.to_thread(load_frame, ds))
     features = pick_features(model, baseline, base_df, batch_df)
-    base_scores, batch_scores = await asyncio.gather(
-        asyncio.to_thread(run_scores, baseline_run), asyncio.to_thread(run_scores, run)
-    )
-    psi = await asyncio.to_thread(compute_psi, base_df, batch_df, features, base_scores, batch_scores)
     reported = _number(run.metrics.get("psi_score"))
-    if "__score__" not in psi and reported is not None:  # the runner computed score PSI itself
+    if reported is not None:
+        psi = await asyncio.to_thread(compute_psi, base_df, batch_df, features)
         psi["__score__"] = reported
+    else:  # retain support for runners which provide scores but do not compute PSI
+        base_scores, batch_scores = await asyncio.gather(
+            asyncio.to_thread(run_scores, baseline_run), asyncio.to_thread(run_scores, run)
+        )
+        psi = await asyncio.to_thread(compute_psi, base_df, batch_df, features, base_scores, batch_scores)
 
     gini = _number(run.metrics.get("gini"))
     baseline_gini = _number(baseline_run.metrics.get("gini")) if baseline_run else None
     status, reasons = classify(psi, gini, baseline_gini)
+    if not psi and (gini is None or baseline_gini is None):
+        status = "amber"
+        reasons.append("No comparable drift or performance evidence is available; monitoring is unassessed.")
+    quality_warnings = [c.name for c in quality.checks if c.severity == "amber"]
+    if quality_warnings:
+        if status == "green":
+            status = "amber"
+        await _alert(model_id, "amber", "data_quality", "Quality warnings: " + ", ".join(quality_warnings),
+                     {"batch_id": dataset_id, "checks": quality_warnings})
 
     # 4. persist, alert, re-validate
     metric = MonitoringMetric(
@@ -160,12 +203,12 @@ async def process_batch(model_id: str, dataset_id: str) -> MonitoringMetric:
         gini=gini,
         status=status,
     )
-    await repo.put(Collections.METRICS, key, metric)
-    if status != "green":
+    if reasons:
         detail: dict[str, Any] = {"batch_id": dataset_id, "run_id": run.run_id, "psi": metric.psi, "gini": gini}
         if status == "red":
-            detail["revalidation_job_id"] = await _revalidate(model_id, reasons)
+            detail["revalidation_job_id"] = await _revalidate(model_id, dataset_id, reasons)
         await _alert(model_id, status, "drift", "; ".join(reasons), detail)
+    await repo.put(Collections.METRICS, key, metric)
     log.info(
         "monitoring batch",
         extra={"model_id": model_id, "batch_id": dataset_id, "status": status, "max_psi": max(psi.values(), default=0)},
@@ -216,6 +259,11 @@ async def process_pending(model_id: str | None = None, force_report: bool = Fals
     summary: dict[str, Any] = {"models": [], "processed": [], "rejected": [], "failed": [], "reports": []}
     for sched in schedules.items:
         summary["models"].append(sched.model_id)
+        # Older red batches remain actionable while H2 is pending. Submit them on a later tick once
+        # the previous investigation is complete; never replace an in-progress human sign-off.
+        model_locks = _locks.setdefault(asyncio.get_running_loop(), {})
+        async with model_locks.setdefault(sched.model_id, asyncio.Lock()):
+            await _retry_revalidations(sched.model_id)
         batches = await repo.find(
             Collections.DATASETS,
             Dataset,
@@ -238,6 +286,31 @@ async def process_pending(model_id: str | None = None, force_report: bool = Fals
         if (force_report and "monitoring" in sched.report_types) or await report_due(sched, new_batches):
             await _report(summary, sched.model_id)
     return summary
+
+
+async def _retry_revalidations(model_id: str) -> None:
+    repo = get_repo()
+    page = 1
+    while True:
+        alerts = await repo.find(
+            Collections.ALERTS, Alert, where={"model_id": model_id, "kind": "drift", "severity": "red"},
+            page=page, page_size=100, order_by="created_at",
+        )
+        for alert in alerts.items:
+            batch_id = alert.detail.get("batch_id")
+            if alert.status == "closed" or alert.detail.get("revalidation_job_id") or not batch_id:
+                continue
+            job_id = await _revalidate(model_id, batch_id, [alert.message])
+            if job_id is None:
+                return  # an existing job / H2 must finish first
+            version = await repo.get_version(Collections.ALERTS, alert.alert_id)
+            # Preserve any acknowledgement made while revalidation was submitted.
+            current = await repo.get(Collections.ALERTS, alert.alert_id, Alert)
+            current.detail["revalidation_job_id"] = job_id
+            await repo.put(Collections.ALERTS, current.alert_id, current, if_version=version)
+        if page * 100 >= alerts.pagination.total or not alerts.items:
+            return
+        page += 1
 
 
 @register_handler("monitoring_batch")

@@ -106,6 +106,63 @@ async def test_monitoring_page_shows_drift(api_client: ApiClient) -> None:
     assert any("Score PSI" in m.label and m.value == "0.310" for m in at.metric)
 
 
+async def test_monitoring_schedule_uses_saved_settings_and_preserves_report_types(api_client: ApiClient) -> None:
+    from mrf.contracts.models import Schedule
+
+    await seeded()
+    await get_repo().put(Collections.SCHEDULES, "mdl_r", Schedule(
+        model_id="mdl_r", cron="*/15 * * * *", enabled=False, report_types=["monitoring", "validation"],
+    ))
+    at = run(page_script("monitoring"), api_client)
+    cron = next(t for t in at.text_input if t.label == "Cron (UTC)")
+    assert cron.value == "*/15 * * * *"
+    assert not next(t for t in at.toggle if t.label == "Enabled").value
+    assert next(b for b in at.button if b.label == "Process new batches").disabled
+    cron.set_value("0 8 * * *")
+    next(b for b in at.button if b.label == "Save schedule").click().run()
+    assert not at.exception
+    saved = api_client.schedule("mdl_r")
+    assert saved["cron"] == "0 8 * * *" and not saved["enabled"]
+    assert saved["report_types"] == ["monitoring", "validation"]
+
+
+async def test_alert_actions_require_resolution_and_update_filters(api_client: ApiClient) -> None:
+    await seeded()
+    at = run(page_script("monitoring"), api_client)
+    next(b for b in at.button if b.label == "Close alert").click().run()
+    assert any("Describe the resolution" in e.value for e in at.error)
+    next(b for b in at.button if b.label == "Acknowledge alert").click().run()
+    assert not at.exception
+    assert api_client.alerts("mdl_r", status="open")[1] == 0
+    next(s for s in at.selectbox if s.label == "Alert status").select("acknowledged").run()
+    next(t for t in at.text_area if t.label == "Resolution / action taken").set_value("Reviewed batch and mitigation")
+    next(b for b in at.button if b.label == "Close alert").click().run()
+    assert not at.exception
+    closed, total = api_client.alerts("mdl_r", status="closed")
+    assert total == 1 and closed[0]["closed_by"] == "tester"
+
+
+async def test_monitoring_submission_returns_without_blocking(
+    api_client: ApiClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await seeded()
+    monkeypatch.setattr(api_client, "wait_job", lambda *args, **kwargs: pytest.fail("UI must not block on a job"))
+    at = run(page_script("monitoring"), api_client)
+    next(b for b in at.button if b.label == "Process new batches").click().run()
+    assert not at.exception and at.session_state["monitoring-job-mdl_r"]
+    assert api_client.job(at.session_state["monitoring-job-mdl_r"])["kind"] == "monitoring_tick"
+
+
+async def test_invalid_pipeline_submission_keeps_inputs(api_client: ApiClient) -> None:
+    at = run(page_script("overview"), api_client)
+    next(t for t in at.text_input if t.label == "Model name").set_value("Keep my model name")
+    next(t for t in at.text_input if t.label == "Owner (optional)").set_value("Team member")
+    next(b for b in at.button if b.label == "Start pipeline").click().run()
+    assert not at.exception and any("add at least one file" in e.value for e in at.error)
+    assert next(t for t in at.text_input if t.label == "Model name").value == "Keep my model name"
+    assert next(t for t in at.text_input if t.label == "Owner (optional)").value == "Team member"
+
+
 async def test_reject_needs_a_comment(api_client: ApiClient) -> None:
     await seeded()
     at = run(page_script("reviews"), api_client)

@@ -16,7 +16,6 @@ mismatch or an untraceable number is not stored (MRF-5000 -> manual review). Thr
 from __future__ import annotations
 
 import asyncio
-import importlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -380,10 +379,21 @@ class ReportBuilderImpl:
     async def build(self, ctx: StepContext, report_type: str) -> Report:
         if report_type == "monitoring":
             return await self._monitoring(ctx)
-        if report_type not in {"analysis", "validation"}:
-            raise MRFError(MRFCode.INPUT_BODY, f"unknown report type {report_type!r}", field="type")
+        return (await self.build_many(ctx, [report_type]))[0]
+
+    async def build_many(self, ctx: StepContext, report_types: list[str]) -> list[Report]:
+        """Render separate report views from one immutable set of facts and evidence."""
+        for kind in report_types:
+            if kind not in {"analysis", "validation"}:
+                raise MRFError(MRFCode.INPUT_BODY, f"unknown report type {kind!r}", field="type")
         inp = await gather(ctx)
         facts, sources, view = assemble(inp)
+        return [await self._build_view(ctx, kind, inp, facts, sources, view) for kind in report_types]
+
+    async def _build_view(
+        self, ctx: StepContext, report_type: str, inp: Inputs,
+        facts: dict[str, Any], sources: dict[str, str], view: dict[str, Any],
+    ) -> Report:
         report_id = new_id("report")
         ledger = Ledger(facts, sources)
         page = render(report_type, ledger, view, inp, report_id)
@@ -424,16 +434,13 @@ class ReportBuilderImpl:
                 "number_check": check,
                 "numbers": [{k: e[k] for k in ("key", "text", "source")} for e in ledger.entries],
                 "sources": sources,
+                "revalidation_dataset_ids": ctx.artifacts.get("revalidation_dataset_ids", []),
             },
         )
 
     @staticmethod
     async def _monitoring(ctx: StepContext) -> Report:
-        try:
-            module = importlib.import_module("mrf.monitoring.report")
-        except ModuleNotFoundError as exc:
-            raise MRFError(
-                MRFCode.INTERNAL, "monitoring reports are built by A4 (mrf.monitoring.report) - not available yet"
-            ) from exc
-        report: Report = await module.MonitoringReportBuilder().build(ctx)
+        from mrf.monitoring.report import MonitoringReportBuilder
+
+        report: Report = await MonitoringReportBuilder().build(ctx)
         return report
