@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -68,9 +69,43 @@ class RebuildOutput(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-def _mock_rebuild(_messages: list[ChatMessage], _schema: type[BaseModel] | None) -> RebuildOutput:
-    """Mock LLM: no code -> the agent uses the deterministic transcription."""
-    return RebuildOutput()
+def _between(text: str, start: str, end: str) -> str:
+    a = text.find(start)
+    if a < 0:
+        return ""
+    a = text.find("\n", a) + 1
+    b = text.find(end, a)
+    return text[a : b if b >= 0 else len(text)]
+
+
+def _mock_rebuild(messages: list[ChatMessage], _schema: type[BaseModel] | None) -> RebuildOutput:
+    """Mock LLM (CI, local demo). Default: no code, so the agent uses the deterministic transcription.
+
+    With ``MRF_MOCK_REBUILD_FAULTS=1`` it simulates the most common real translation error for the demo: the
+    first answer uses the wrong reference level for one categorical variable; once parity feedback arrives,
+    the answer is correct. The result is labelled with the provider (``mock``) everywhere it is shown.
+    """
+    if os.environ.get("MRF_MOCK_REBUILD_FAULTS", "0") in {"", "0"}:
+        return RebuildOutput()
+    prompt = messages[-1].content
+    try:
+        coefficients = json.loads(_between(prompt, "PARAMETER ESTIMATES", "\n\nINPUT COLUMNS:"))
+        columns = json.loads(_between(prompt, "INPUT COLUMNS:", "\n\nMAPPING NOTES:"))
+    except json.JSONDecodeError:
+        return RebuildOutput()
+    link = "identity" if "link = identity" in prompt else "logit"
+    spec = codegen.build_spec(coefficients, [c["name"] for c in columns], link)
+    if "FEEDBACK:" in prompt or not spec.levels:
+        return RebuildOutput(
+            code=codegen.render(spec, "model"), notes=["reference levels taken from the legacy CLASS statement"]
+        )
+    column = sorted(spec.levels)[0]
+    known = next((c.get("levels") or [] for c in columns if c["name"] == column), [])
+    reference = next((lv for lv in known if lv not in spec.levels[column]), None)
+    first = sorted(spec.levels[column])[0]
+    if reference is not None:  # the classic mistake: first level dropped as reference instead of the legacy one
+        spec.levels[column][reference] = spec.levels[column].pop(first)
+    return RebuildOutput(code=codegen.render(spec, "model"), notes=[f"{column}: first level used as reference"])
 
 
 MockLLM.register_default(ROLE, _mock_rebuild)
@@ -178,6 +213,7 @@ class RebuildAgent:
         parity.detail = {
             **parity.detail,
             "generator": generator,
+            "llm_provider": get_llm().provider if generator == "llm" else None,
             "notes": notes[:10],
             "spec": spec.summary(),
             "source_language": language.value,

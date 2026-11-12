@@ -101,8 +101,9 @@ def _log_mlflow(name: str, params: dict[str, Any], metrics: dict[str, Any]) -> s
     except ImportError:
         return None
     try:
-        root = Path(get_settings().data_dir).resolve() / "mlruns"
-        mlflow.set_tracking_uri(root.as_uri())
+        root = Path(get_settings().data_dir).resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        mlflow.set_tracking_uri(f"sqlite:///{(root / 'mlflow.db').as_posix()}")  # the file store is deprecated
         mlflow.set_experiment("model-risk-factory")
         with mlflow.start_run(run_name=name) as active:
             mlflow.log_params({k: str(v)[:250] for k, v in params.items()})

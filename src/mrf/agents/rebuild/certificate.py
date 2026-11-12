@@ -39,7 +39,8 @@ def render_certificate(model: ModelRecord, rebuild: Rebuild, fixture: Fixture) -
         spec=spec,
         notes=detail.get("notes") or [],
         source_language=str(detail.get("source_language") or "legacy").upper(),
-        generator_label=GENERATOR_LABELS.get(str(detail.get("generator")), str(detail.get("generator"))),
+        generator_label=GENERATOR_LABELS.get(str(detail.get("generator")), str(detail.get("generator")))
+        + (f" - provider: {detail['llm_provider']}" if detail.get("llm_provider") else ""),
         max_abs_diff="n/a" if max_diff is None else f"{max_diff:.3g}",
         tolerance=f"{rebuild.parity.tolerance:g}" if rebuild.parity.tolerance is not None else "n/a",
         issued_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),

@@ -43,8 +43,11 @@ def _wait(client: TestClient, job_id: str) -> dict[str, Any]:
 
 
 def _approve(client: TestClient, review_id: str) -> dict[str, Any]:
-    resp = client.post(f"/api/v1/reviews/{review_id}/decision", headers={**H, "X-Operator": "albert"},
-                       json={"decision": "approve", "comment": "MVP"})
+    resp = client.post(
+        f"/api/v1/reviews/{review_id}/decision",
+        headers={**H, "X-Operator": "albert"},
+        json={"decision": "approve", "comment": "MVP"},
+    )
     assert resp.status_code == 200, resp.text
     return _wait(client, resp.json()["data"]["job_id"])
 
@@ -62,12 +65,21 @@ def test_mvp_m001_end_to_end(client: TestClient, tmp_path: Path) -> None:
 
     sample = pd.read_csv(SAS.parents[1] / "m001" / "input_sample.csv").astype({"credit_amount": float})
     sample.to_csv(tmp_path / "m001_oot.csv", index=False)
-    ds = Dataset(dataset_id="ds_m001_oot", name="M001 out-of-time", uri=str(tmp_path / "m001_oot.csv"),
-                 role="out_of_time", schema_name="german_credit_clean")
+    ds = Dataset(
+        dataset_id="ds_m001_oot",
+        name="M001 out-of-time",
+        uri=str(tmp_path / "m001_oot.csv"),
+        role="out_of_time",
+        schema_name="german_credit_clean",
+    )
     asyncio.run(repo.put(Collections.DATASETS, ds.dataset_id, ds))
 
-    resp = client.post("/api/v1/pipelines", headers=H, files=[("files", (SAS.name, SAS.read_bytes()))],
-                       data={"model_name": "M001 Retail PD scorecard", "dataset_ids": [ds.dataset_id]})
+    resp = client.post(
+        "/api/v1/pipelines",
+        headers=H,
+        files=[("files", (SAS.name, SAS.read_bytes()))],
+        data={"model_name": "M001 Retail PD scorecard", "dataset_ids": [ds.dataset_id]},
+    )
     assert resp.status_code == 202, resp.text
     started = resp.json()["data"]
 
@@ -77,7 +89,10 @@ def test_mvp_m001_end_to_end(client: TestClient, tmp_path: Path) -> None:
     model = client.get(f"/api/v1/models/{started['model_id']}", headers=H).json()["data"]
     c = model["classification"]
     assert (c["language"], c["algorithm"], c["purpose"], c["target"]) == (
-        "sas", "logistic_regression", "pd", "default_flag",
+        "sas",
+        "logistic_regression",
+        "pd",
+        "default_flag",
     )
     assert c["confidence"] >= 0.7 and not c["needs_review"]
     assert c["metadata"]["class_variables"] == {"checking_status": "A14", "credit_history": "A34", "age_band": "3"}

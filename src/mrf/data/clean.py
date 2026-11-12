@@ -5,6 +5,7 @@ missing-value handling, outlier capping, categorical encoding, and a
 deterministic train/test split. Mirrors the pipeline in
 ``scripts/preprocess_german_credit.py`` so the two stay consistent.
 """
+
 from __future__ import annotations
 
 from typing import Any

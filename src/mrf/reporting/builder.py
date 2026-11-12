@@ -210,7 +210,9 @@ def assemble(inp: Inputs) -> tuple[dict[str, Any], dict[str, str], dict[str, Any
 
     # consistency (parity)
     rb = inp.rebuild
-    if rb and rb.parity:
+    if rb and rb.parity and rb.parity.detail.get("skipped"):
+        warnings.append("No rebuild was needed (the source is already Python), so consistency was not assessed.")
+    elif rb and rb.parity:
         par, src = rb.parity, f"rebuild:{rb.rebuild_id}.parity"
         put("parity.n_records", int(par.n_records), f"{src}.n_records")
         put("parity.n_mismatches", int(par.n_mismatches), f"{src}.n_mismatches")

@@ -251,3 +251,16 @@ async def test_runner_linear_model_reports_regression_metrics(tmp_path: Path) ->
     assert 0.5 < run.metrics["r2"] <= 1
     stored = (await get_repo().find(Collections.REBUILDS, Rebuild, where={"model_id": ctx.model.model_id})).items
     assert json.dumps(run.metrics, default=str) and run.metrics["rebuild_id"] == stored[0].rebuild_id
+
+
+async def test_mock_fault_mode_simulates_a_reference_level_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MRF_MOCK_REBUILD_FAULTS", "1")
+    source = LEGACY / "M002_r_glm_card_default" / "m002_card_default.R"
+    first = await RebuildAgent().rebuild(await _ctx("M002", source))
+    assert first.status == "failed" and first.parity and first.parity.detail["llm_provider"] == "mock"
+    assert any("education" in f for f in first.feedback)
+    await get_repo().put(Collections.REBUILDS, first.rebuild_id, first)
+    ctx = await _ctx("M002", source, attempt=2, feedback=first.feedback, artifacts={"rebuild_id": first.rebuild_id})
+    second = await RebuildAgent().rebuild(ctx)
+    assert second.status == "passed" and second.certificate is not None
+    assert "provider: mock" in (await get_blobs().get_bytes(second.certificate.uri)).decode()

@@ -6,6 +6,7 @@ Registered schemas in ``SCHEMAS`` are the data-quality standard used by A4's
 Only German Credit is currently defined (the M001 model). Add one entry per
 cleaned dataset as they are finalised.
 """
+
 from __future__ import annotations
 
 from typing import Any

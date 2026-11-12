@@ -67,9 +67,7 @@ async def profile_data(dataset_id: str, columns: list[str] | None = None, max_to
             mean_v = _finite_or_none(series.mean())
 
         # top values (drop NaN; value -> count, most frequent first)
-        top_values = [
-            [_jsonable(v), int(c)] for v, c in series.dropna().value_counts().head(max_top_values).items()
-        ]
+        top_values = [[_jsonable(v), int(c)] for v, c in series.dropna().value_counts().head(max_top_values).items()]
 
         profiles.append(
             {
