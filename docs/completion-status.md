@@ -53,6 +53,7 @@
 
 最终本地结果：Ruff、mypy、Bandit 中高危扫描通过；pytest **314 passed**；OpenAPI lint 无错误。
 回归覆盖真实重建任务、监控重验证到 H2、基线保留、旧告警兼容及分页、配置回显和页面操作。
+隔离的 SQLite + mock LLM 演示通过真实 API 处理 M001 和四个监控批次；浏览器复验了确认 / 关闭告警、成功提示和后台任务刷新。
 
 ```bash
 uv sync --all-extras --frozen
