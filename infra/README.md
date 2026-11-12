@@ -83,6 +83,28 @@ The UI asks for the API key at sign-in (the container holds it, so the public UR
 
 Then `cd-dev.yml` deploys every green `main`; `cd-demo.yml` is run by hand with a tag.
 
+## Nightly real-LLM evaluation
+
+The `nightly-eval` workflow evaluates M001 against the existing dev API and uploads raw evidence plus the report.
+It refuses mock/unknown providers and fails if the pipeline fails or escalates. Set `vars.MRF_DEV_API_URL`,
+`secrets.MRF_DEV_API_KEY`, and (after the data handoff) `vars.MRF_EVAL_M001_DATASETS` to space-separated dev dataset
+IDs. Start it manually first. `vars.NIGHTLY_EVAL_ENABLED=true` enables the daily schedule; leave it unset until
+the real LLM configuration and budget are agreed. Automatic H1/H2 decisions carry `evaluation-harness` as actor
+and are evaluation events, not an independent approval. Do not run this on the production/demo inventory.
+
+## Optional Azure Blob storage
+
+Azure Files remains the default. To use the existing private `mrf` Blob container, set `MRF_BLOB_ACCOUNT_URL` to
+the storage account's HTTPS endpoint and `MRF_BLOB_CONTAINER=mrf`. The existing Bicep grants the app identity
+Storage Blob Data Contributor. The adapter uses managed identity, returns private artifact URLs, and downloads
+file snapshots under `MRF_DATA_DIR/blob-cache` for pandas-based readers. Provision the container before enabling
+the adapter. Source: [Azure SDK ContainerClient](https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.containerclient?view=azure-python).
+Existing `file://` references remain tied to Azure Files: retain that store or perform an explicit migration
+before switching an environment that already contains records. No automatic migration is attempted.
+
+MLflow defaults to SQLite under `MRF_DATA_DIR/mlflow.db` (the deprecated file store is not selected by the
+Dockerfile). An explicit `MLFLOW_TRACKING_URI` overrides this with a tracking server or another supported store.
+
 ## When things go wrong
 
 | Symptom | Cause | Fix |

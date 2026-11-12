@@ -8,7 +8,7 @@ import numpy as np
 
 from mrf.contracts.models import Dataset
 from mrf.core import MRFCode, MRFError
-from mrf.data.io import read_any
+from mrf.monitoring.frames import load_frame
 from mrf.storage import Collections, get_repo
 
 
@@ -29,7 +29,7 @@ async def profile_data(dataset_id: str, columns: list[str] | None = None, max_to
     dataset = await repo.get(Collections.DATASETS, dataset_id, Dataset)  # missing -> MRF-1404
 
     try:
-        df = read_any(dataset)
+        df = load_frame(dataset)
     except (ValueError, ImportError) as exc:
         raise MRFError(
             MRFCode.INPUT_FILE_TYPE, f"dataset '{dataset_id}' could not be read: {exc}", field="dataset_id"

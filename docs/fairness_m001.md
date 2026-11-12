@@ -7,8 +7,8 @@
 
 ## Why age
 
-M001 uses `age_band` directly as a model variable (derived in the SAS data step from `age`: 1 = under 30,
-2 = 30-44, 3 = 45 and over; band 3 is the reference level). Age is a protected characteristic under the UK
+M001 uses `age_band` directly as a model variable (derived in the SAS data step from `age`: 1 = under 25,
+2 = 25-39, 3 = 40 and over; band 3 is the reference level). Age is a protected characteristic under the UK
 Equality Act 2010. For financial services, Schedule 3 paragraph 20A (inserted by the Equality Act 2010 (Age
 Exceptions) Order 2012) permits age-based differences, provided that where a risk assessment considers age, it
 uses information that is relevant to the risk and comes from a source on which it is reasonable to rely. So the
@@ -34,9 +34,9 @@ Data: `tests/fixtures/m001/input_sample.csv`; 300 records; score `pd_legacy`; ov
 
 | Age band | Ages | Records | Share | Bad rate | Approval rate | Adverse impact ratio | TPR (bads declined) | FPR (goods declined) | AUC within band |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | under 30 | 59 | 19.7% | 47.5% | 55.9% | 0.69 | 64.3% | 25.8% | 0.733 |
-| 2 | 30-44 | 142 | 47.3% | 26.8% | 68.3% | 0.85 | 73.7% | 16.3% | 0.815 |
-| 3 | 45 and over | 99 | 33.0% | 24.2% | 80.8% | 1.00 | 45.8% | 10.7% | 0.773 |
+| 1 | under 25 | 59 | 19.7% | 47.5% | 55.9% | 0.69 | 64.3% | 25.8% | 0.733 |
+| 2 | 25-39 | 142 | 47.3% | 26.8% | 68.3% | 0.85 | 73.7% | 16.3% | 0.815 |
+| 3 | 40 and over | 99 | 33.0% | 24.2% | 80.8% | 1.00 | 45.8% | 10.7% | 0.773 |
 
 - Disparate impact (lowest / highest approval rate): **0.69** (reference band 3).
 - Equal-opportunity gap (spread of TPR): 27.9%; spread of FPR: 15.1%.
@@ -45,13 +45,13 @@ Data: `tests/fixtures/m001/input_sample.csv`; 300 records; score `pd_legacy`; ov
 
 ## Reading the results (draft)
 
-1. **Approval gap.** Applicants under 30 are approved markedly less often than applicants aged 45 and over; on the
+1. **Approval gap.** Applicants under 25 are approved markedly less often than applicants aged 40 and over; on the
    fixture the ratio is below the four-fifths line, so the analysis report shows fairness as red.
 2. **Part of the gap is risk.** The observed bad rate is also much higher in the youngest band. Approval parity
    alone therefore does not prove unfair treatment: a model that tracks real risk will approve fewer applicants in
    a riskier group.
-3. **The more telling signal is among good payers.** Under-30 applicants who repaid are declined more often than
-   good payers aged 45 and over (higher FPR). That is the outcome a customer would experience as unfair, and it is
+3. **The more telling signal is among good payers.** Under-25 applicants who repaid are declined more often than
+   good payers aged 40 and over (higher FPR). That is the outcome a customer would experience as unfair, and it is
    what an equal-opportunity view measures.
 4. **Small sample.** Band 1 has few records in the fixture, so every rate has wide uncertainty. Conclusions need
    the full out-of-time sample (and ideally confidence intervals) before sign-off.

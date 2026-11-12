@@ -161,6 +161,12 @@ class ApiClient:
     def rebuilds(self, model_id: str) -> list[dict[str, Any]]:
         return self.items(f"/api/v1/models/{model_id}/rebuilds")[0]
 
+    def start_rebuild(self, model_id: str, fixture_id: str | None = None, max_attempts: int = 5) -> dict[str, Any]:
+        body: dict[str, Any] = {"max_attempts": max_attempts}
+        if fixture_id:
+            body["fixture_id"] = fixture_id
+        return dict(self.data("POST", f"/api/v1/models/{model_id}/rebuilds", json=body))
+
     def rebuild_code(self, model_id: str, rebuild_id: str) -> str:
         return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", format="code")
 

@@ -42,8 +42,7 @@ USER app
 ENV PATH="/app/.venv/bin:$PATH" \
     MRF_DATA_DIR=/data \
     MRF_SQLITE_PATH=/state/mrf.sqlite \
-    MRF_CHECKPOINT_PATH=/state/checkpoints.sqlite \
-    MLFLOW_TRACKING_URI=/data/mlruns
+    MRF_CHECKPOINT_PATH=/state/checkpoints.sqlite
 
 EXPOSE 8000
 CMD ["uvicorn", "mrf.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

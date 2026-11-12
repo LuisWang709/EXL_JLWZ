@@ -1,0 +1,77 @@
+{
+  "title": "Model Risk Factory",
+  "subtitle": "EXL Hackathon 2026, Challenge 04, Team A",
+  "status": "Review copy. Real LLM evaluation and owner sign-off remain pending.",
+  "slides": [
+    {
+      "title": "Model Risk Factory",
+      "lead": "Evidence and human review throughout the model lifecycle",
+      "points": ["Legacy SAS / R code becomes documented Python scoring code with a tested reference.", "Documentation approval and validation sign-off remain human decisions."],
+      "notes": "Introduce the model-risk workflow. This is a prototype with offline verification, not a claim of production or regulatory approval.",
+      "sources": ["README.md", "docs/architecture.md"]
+    },
+    {
+      "title": "The operational problem",
+      "lead": "Legacy models spread evidence across code, spreadsheets and review documents",
+      "points": ["Reviewers need to connect each claim and number to its source.", "Code migration needs record-level agreement with an independently supplied reference.", "Monitoring findings must return to an accountable reviewer."],
+      "notes": "Explain the user problem without assigning an invented manual cost or completion time.",
+      "sources": ["C04 A队执行计划 — 智能体模型风险工厂.md"]
+    },
+    {
+      "title": "The model lifecycle",
+      "lead": "One workflow connects documentation, migration and monitoring",
+      "table": [["Stage", "Result", "Human decision"], ["Identify and document", "Inventory, cited document, rating", "H1 documentation approval"], ["Rebuild and validate", "Python code, parity certificate, validation report", "H2 validation sign-off"], ["Monitor", "Quality checks, drift alerts, periodic reports", "Review drift and revalidation"]],
+      "notes": "Show the Review queue. Explain that exhausted retries or low confidence lead to manual review.",
+      "sources": ["src/mrf/orchestrator/graph.py", "src/mrf/core/states.py"]
+    },
+    {
+      "title": "Application architecture",
+      "lead": "A single API process coordinates agents, tools and persistent evidence",
+      "points": ["Streamlit and REST clients submit asynchronous jobs to the LangGraph workflow.", "MCP tools parse code, retrieve knowledge, profile data, score candidates and compute metrics.", "SQLite / Cosmos store records. Azure Files or managed-identity Blob storage hold artefacts.", "Azure Container Apps runs one API replica, with a scheduled monitoring trigger."],
+      "notes": "The separate architecture PDF shows the component relationships. The job queue is in-process, so horizontal API scaling needs a different queue architecture.",
+      "sources": ["docs/architecture.md", "infra/modules/aca.bicep", "src/mrf/storage/azure_blobs.py"]
+    },
+    {
+      "title": "Python rebuild and parity",
+      "lead": "Each candidate must match supplied reference scores before certification",
+      "points": ["The agent attempts LLM translation and can fall back to transcription of exported regression parameters.", "A restricted scoring subprocess compares each reference record using the configured tolerance.", "Mismatch feedback returns to the next attempt. The certificate identifies the code hash.", "Current SAS/R fixture scores use Python reproduction. Independent legacy-runtime exports remain pending."],
+      "notes": "Show the new Start Python rebuild control, generated score function and certificate. Do not describe Python-reproduced reference scores as independently executed SAS/R.",
+      "sources": ["src/mrf/agents/rebuild/agent.py", "src/mrf/agents/rebuild/certificate.py", "models/legacy/README.md"]
+    },
+    {
+      "title": "Validation evidence",
+      "lead": "Stored tool results supply every reported number",
+      "table": [["Dimension", "Evidence"], ["Consistency", "Record-level parity against supplied reference scores"], ["Performance", "AUC, Gini, KS, Brier and calibration where applicable"], ["Stability", "Score PSI and feature distribution checks"], ["Fairness", "Segment approval rates, impact ratios and error rates"]],
+      "notes": "Metrics depend on dataset roles and available targets. Missing evidence is unassessed. Documentation-only Python models do not receive a parity certificate.",
+      "sources": ["src/mrf/validation/metrics.py", "src/mrf/reporting/builder.py"]
+    },
+    {
+      "title": "Monitoring and revalidation",
+      "lead": "A failed batch produces a visible finding and an accountable next step",
+      "points": ["Quality failures reject the batch before model scoring.", "Amber and red drift generate alerts. Red drift returns the workflow to validation and a new H2 review.", "Scheduled reports preserve batch metrics and their sources.", "The demo's drift batches are synthetic and must be described as such."],
+      "notes": "Show a rejected batch and its reason, then a drift alert. Thresholds are team policy rather than a regulatory certification.",
+      "sources": ["src/mrf/monitoring/batch.py", "src/mrf/monitoring/report.py"]
+    },
+    {
+      "title": "Business case measurement",
+      "lead": "Savings need a measured manual baseline and deployment evidence",
+      "points": ["Record manual documentation and migration effort separately from human approval waiting time.", "Measure agent processing time, retries and tokens on the intended real LLM configuration.", "Compute portfolio scenarios from measured per-model inputs and label them as projections.", "No measured manual baseline is available, so this deck makes no savings or ROI claim."],
+      "notes": "Use the baseline worksheet. Offline mock latency and mock token estimates are not production cost evidence.",
+      "sources": ["config/pipeline.yaml", "scripts/evaluate.py", "docs/submission/manual-baseline.md"]
+    },
+    {
+      "title": "Responsible AI and review boundaries",
+      "lead": "The system assists reviewers and preserves evidence for their decisions",
+      "points": ["Input guards screen common personal-data and prompt-injection patterns, with known blind spots.", "The document rater checks citations and vetoes invented variables or unsupported numbers.", "H1 and H2 record a human actor. Evaluation auto-approvals are labelled simulation events.", "Real LLM calibration, fairness interpretation and policy approval require owner sign-off."],
+      "notes": "The knowledge base is a team paraphrase. The official SS1/23 index now lists the April 2026 revision. This prototype does not establish regulatory compliance.",
+      "sources": ["docs/responsible_ai.md", "docs/submission/responsible-ai.md", "docs/ss1_23_qa.md"]
+    },
+    {
+      "title": "Current readiness and next steps",
+      "lead": "Runtime implementation is testable. Final acceptance still needs external evidence",
+      "table": [["Available", "Still required"], ["Real agent modules and offline regression tests", "Deployed real LLM calibration and end-to-end evaluation"], ["Rebuild UI, scoring code and parity certificate", "Data-owner review and independent legacy reference exports"], ["Review deck, architecture and RAI sources", "Owner sign-off, recorded video link and final email"]],
+      "notes": "End on the concrete acceptance dependencies. Do not claim an unverified cloud deployment, completed independent review, or a published recording.",
+      "sources": ["docs/completion-status.md"]
+    }
+  ]
+}

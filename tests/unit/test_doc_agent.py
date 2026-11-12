@@ -95,8 +95,9 @@ async def test_performance_uses_compute_metrics_when_a_scored_dataset_exists(tmp
     assert re.search(r"AUC 0\.\d{3}, Gini 0\.\d{3}, KS 0\.\d{3}, Brier 0\.\d{4}", perf), perf
     metrics_ev = next(e for e in doc.evidence if e.quote and e.quote.startswith("compute_metrics(ds_m001_scored"))
     assert "n_records=300" in (metrics_ev.quote or "")
-    # profile_data is A2's and not implemented yet: the draft says so instead of failing
-    assert "Data profiling of ds_m001_scored was not available" in doc.sections["data"]
+    assert "profile_data reports 300 rows" in doc.sections["data"]
+    profile_ev = next(e for e in doc.evidence if e.quote and e.quote.startswith("profile_data(ds_m001_scored"))
+    assert "rows=300" in (profile_ev.quote or "")
 
 
 async def test_unparseable_source_is_mrf_2001() -> None:

@@ -1,0 +1,44 @@
+name: nightly-eval
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-eval
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    # Opt in after configuring the endpoint and agreeing the LLM budget.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.NIGHTLY_EVAL_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MRF_EVAL_API_URL: ${{ vars.MRF_DEV_API_URL }}
+      MRF_EVAL_API_KEY: ${{ secrets.MRF_DEV_API_KEY }}
+      MRF_EVAL_DATASETS: ${{ vars.MRF_EVAL_M001_DATASETS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Install evaluation client
+        run: uv sync --python 3.12 --all-extras --frozen
+      - name: Evaluate M001 with the deployed real LLM
+        shell: bash
+        run: |
+          test -n "$MRF_EVAL_API_URL" || { echo 'Configure vars.MRF_DEV_API_URL'; exit 1; }
+          test -n "$MRF_EVAL_API_KEY" || { echo 'Configure secrets.MRF_DEV_API_KEY'; exit 1; }
+          args=()
+          for dataset in $MRF_EVAL_DATASETS; do args+=(--dataset "$dataset"); done
+          uv run python scripts/evaluate.py --api "$MRF_EVAL_API_URL" --model M001 \
+            --runs 1 --strict --require-real-llm --report-out var/eval/evaluation.md "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-evaluation
+          path: var/eval/
+          if-no-files-found: warn

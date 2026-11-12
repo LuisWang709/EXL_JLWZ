@@ -2,9 +2,12 @@
 .git
 .github
 .venv
+.tmp/
+output/
 venv
 var/
 data/
+raw*.zip
 mlruns/
 mlartifacts/
 outputs/

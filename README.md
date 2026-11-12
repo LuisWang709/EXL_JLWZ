@@ -9,17 +9,22 @@ A 队的模型风险工厂。它把一份遗留的 SAS / R 模型代码，自动
 需要 Python 3.11–3.13 和 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
-uv sync                                  # 核心依赖 + dev 工具
-uv sync --extra data --extra rag         # 按需加装：数据/建模、RAG、azure、mlops、ui；全部：--all-extras
+uv sync --all-extras --frozen              # 运行完整流水线和测试所需的依赖
 cp .env.example .env                     # 默认 MRF_LLM_PROVIDER=mock，不需要任何密钥
 uv run pytest                            # 单元测试（模拟 LLM）
 uv run uvicorn mrf.api.app:app --reload  # http://localhost:8000/docs ，健康检查 /healthz
-uv run python -m mrf.run --model M001 --auto-approve   # 本地用 stub 跑完整流水线
+uv run python -m mrf.run --model M001 --auto-approve   # 真实模块 + mock LLM；不传数据集会跳过可用性评分
 uv run --extra ui streamlit run src/mrf/ui/app.py      # 界面 http://localhost:8501（连接本地 API）
 uv run pre-commit install                # 一次即可
 ```
 
 真实 LLM：在 `.env` 里设 `MRF_LLM_PROVIDER`（`azure_openai` / `openai` / `github_models`）和对应的 endpoint 或 key，见 `.env.example`。
+
+数据准备完成后，用 API 上传数据集并在启动流水线时传入 `dataset_ids`（或 CLI 的 `--dataset`）。
+`--auto-approve` 仅供本地验证；dev/demo 的 H1/H2 使用审核接口。云端禁止 `MRF_STUBS`。
+
+当前未完成项、依赖和复验命令见 [完成状态](docs/completion-status.md)；
+提交材料与演示讲稿见 [提交包](docs/submission/README.md)。
 
 ## 云端环境
 

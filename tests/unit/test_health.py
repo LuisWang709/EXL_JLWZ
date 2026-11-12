@@ -26,7 +26,8 @@ def test_readyz_ok_with_mock_llm(client: TestClient) -> None:
     resp = client.get("/readyz")
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["ready"] is True and data["checks"] == {"storage": "ok", "data_dir": "ok", "llm_config": "ok"}
+    assert data["ready"] is True
+    assert data["checks"] == {"storage": "ok", "data_dir": "ok", "llm_config": "ok", "agents": "ok"}
 
 
 def test_readyz_503_when_llm_endpoint_missing(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -64,3 +65,12 @@ def test_readyz_reports_runtime_without_secrets(client: TestClient) -> None:
         "guards_enabled": True,
     }
     assert "test-key" not in str(data)
+
+
+def test_readyz_rejects_cloud_stubs(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MRF_ENV", "dev")
+    monkeypatch.setenv("MRF_STUBS", "runner")
+    get_settings.cache_clear()
+    response = client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["data"]["checks"]["agents"] == "error: MRFError"

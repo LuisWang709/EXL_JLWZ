@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -37,8 +38,11 @@ async def proven_rebuild(model_id: str, rebuild_id: str | None = None) -> Rebuil
     repo = get_repo()
     if rebuild_id:
         rb = await repo.get_or_none(Collections.REBUILDS, rebuild_id, Rebuild)
-        if rb and rb.status == "passed" and rb.code and rb.parity and not rb.parity.detail.get("skipped"):
+        if rb is None or rb.model_id != model_id:
+            raise MRFError(MRFCode.INVALID_STATE, "the selected rebuild does not belong to this model")
+        if rb.status == "passed" and rb.code and rb.parity and not rb.parity.detail.get("skipped"):
             return rb
+        raise MRFError(MRFCode.INVALID_STATE, "the selected rebuild has not passed parity")
     found = (await repo.find(Collections.REBUILDS, Rebuild, where={"model_id": model_id}, page_size=100)).items
     usable = [r for r in found if r.status == "passed" and r.code and r.parity and not r.parity.detail.get("skipped")]
     if not usable:
@@ -103,7 +107,7 @@ def _log_mlflow(name: str, params: dict[str, Any], metrics: dict[str, Any]) -> s
     try:
         root = Path(get_settings().data_dir).resolve()
         root.mkdir(parents=True, exist_ok=True)
-        mlflow.set_tracking_uri(f"sqlite:///{(root / 'mlflow.db').as_posix()}")  # the file store is deprecated
+        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI") or f"sqlite:///{(root / 'mlflow.db').as_posix()}")
         mlflow.set_experiment("model-risk-factory")
         with mlflow.start_run(run_name=name) as active:
             mlflow.log_params({k: str(v)[:250] for k, v in params.items()})

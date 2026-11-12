@@ -88,9 +88,45 @@ def _documents(model_id: str) -> None:
 
 def _rebuilds(model_id: str) -> None:
     c = api()
+    job_key = f"rebuild-job-{model_id}"
+    job = None
+    if st.session_state.get(job_key):
+        job = guard(lambda: c.job(st.session_state[job_key]), "Rebuild job")
+    busy = bool(job and job.get("status") in {"queued", "running"})
+    with st.form(f"start-rebuild-{model_id}"):
+        fixture_id = st.text_input(
+            "Parity fixture ID (optional)",
+            help="Leave empty to use the uploaded legacy package or a matching built-in demo fixture.",
+        )
+        submitted = st.form_submit_button("Start Python rebuild", type="primary", disabled=busy)
+    st.caption(
+        "Standalone rebuild and parity test. This does not approve H1/H2 or advance the pipeline. "
+        "Raw training data alone cannot prove parity: a legacy package must include reference scores."
+    )
+    if submitted:
+        started = guard(lambda: c.start_rebuild(model_id, fixture_id.strip() or None), "Start rebuild")
+        if started:
+            st.session_state[job_key] = started["job_id"]
+            st.rerun()
+    if job:
+        if busy:
+            st.info(f"Rebuild job {job['job_id']}: {job['status']}. Refresh to check progress.")
+        elif job.get("status") == "failed":
+            failure = job.get("error") or {}
+            st.error(f"Rebuild failed: {failure.get('code', '')} {failure.get('message', 'See job details')}")
+        elif job.get("status") == "cancelled":
+            st.warning("The rebuild job was cancelled.")
+        else:
+            result = job.get("result") or {}
+            if result.get("passed"):
+                st.success("Rebuild job completed. The parity result and any certificate are listed below.")
+            else:
+                st.warning("Rebuild attempts finished without matching the reference scores. See the feedback below.")
+    if st.button("Refresh rebuild status", key=f"refresh-rebuild-{model_id}"):
+        st.rerun()
     rebuilds = guard(lambda: c.rebuilds(model_id), "Rebuilds") or []
     if not rebuilds:
-        st.info("No Python rebuild yet.")
+        st.info("No rebuild attempt yet. Approve H1 in the Review queue or start a standalone rebuild above.")
         return
     rows = []
     for r in rebuilds:
@@ -99,7 +135,7 @@ def _rebuilds(model_id: str) -> None:
             {
                 "attempt": r.get("attempt"),
                 "status": r.get("status"),
-                "parity passed": parity.get("passed"),
+                "parity passed": None if (parity.get("detail") or {}).get("skipped") else parity.get("passed"),
                 "records": parity.get("n_records"),
                 "mismatches": parity.get("n_mismatches"),
                 "max abs diff": parity.get("max_abs_diff"),
@@ -122,11 +158,12 @@ def _rebuilds(model_id: str) -> None:
             page = guard(lambda: c.rebuild_certificate(model_id, latest["rebuild_id"]), "Certificate")
             if page:
                 components.html(page, height=620, scrolling=True)
-    if latest.get("code") and not skipped:
-        with st.expander("Rebuilt Python code"):
+    if latest.get("code"):
+        with st.expander("Source Python code" if skipped else "Rebuilt Python code"):
             code = guard(lambda: c.rebuild_code(model_id, latest["rebuild_id"]), "Code")
             if code:
                 st.code(code, language="python")
+                st.download_button("Download Python code", code, file_name="model.py", mime="text/x-python")
 
 
 def _runs(model_id: str) -> None:

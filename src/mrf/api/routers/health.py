@@ -63,12 +63,23 @@ def _check_llm_config() -> str:
     return f"missing {', '.join(missing)}" if missing else "ok"
 
 
+def _check_agents() -> str:
+    from mrf.orchestrator.registry import Registry
+
+    try:
+        Registry.discover()
+    except Exception as exc:
+        return f"error: {type(exc).__name__}"
+    return "ok"
+
+
 @router.get("/readyz", response_model=None)
 async def readyz(request: Request) -> dict[str, object] | JSONResponse:
     checks = {
         "storage": await _check_storage(),
         "data_dir": _check_data_dir(),
         "llm_config": _check_llm_config(),
+        "agents": _check_agents(),
     }
     ready = all(v == "ok" for v in checks.values())
     settings = get_settings()

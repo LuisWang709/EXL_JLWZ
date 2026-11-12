@@ -25,6 +25,7 @@ htmlcov/
 *.key
 
 # Data never goes into git (see docs/data.md). Only README/.gitkeep are tracked.
+/raw*.zip
 data/*
 !data/README.md
 !data/.gitkeep

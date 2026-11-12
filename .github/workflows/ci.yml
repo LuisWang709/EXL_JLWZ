@@ -75,8 +75,17 @@ jobs:
           context: .
           file: docker/Dockerfile.api
           push: false
+          load: true
+          tags: mrf-api:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Check API image runtime and parity fixtures
+        run: >-
+          docker run --rm --entrypoint python mrf-api:ci -c
+          "from mrf.agents.rebuild.fixtures import load_fixture;
+          from mrf.orchestrator.registry import Registry;
+          [load_fixture(mid) for mid in ('m001', 'm002', 'm004')];
+          assert not any(name.startswith('Stub') for name in Registry.discover().describe().values())"
       - name: Build UI image (not pushed)
         uses: docker/build-push-action@v6
         with:
