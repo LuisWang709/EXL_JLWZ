@@ -1,0 +1,21 @@
+{
+  "model_id": "M002",
+  "name": "Credit card default model",
+  "source_language": "R",
+  "algorithm": "glm(family = binomial(link = 'logit')), treatment contrasts",
+  "target": "default_next_month (1 = default)",
+  "record_id_column": "id",
+  "score_column": "pd_legacy",
+  "link": "logit",
+  "tolerance": 1e-06,
+  "feature_columns": [
+    "limit_bal",
+    "util",
+    "pay_0",
+    "pay_2",
+    "age",
+    "education_1",
+    "education_3",
+    "education_4"
+  ]
+}

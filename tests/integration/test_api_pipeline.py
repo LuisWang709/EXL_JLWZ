@@ -36,7 +36,7 @@ def _start(client: TestClient, key: str | None = None) -> dict[str, Any]:
         "/api/v1/pipelines",
         headers=headers,
         files=[("files", ("m001.sas", SAS))],
-        data={"model_name": "M001 PD", "dataset_ids": ["ds_dev"]},
+        data={"model_name": "M001 PD"},
     )
     assert resp.status_code == 202, resp.text
     body = resp.json()

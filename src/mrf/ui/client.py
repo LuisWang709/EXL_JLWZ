@@ -85,11 +85,37 @@ class ApiClient:
         return dict(self.data("GET", f"/api/v1/pipelines/{pipeline_id}"))
 
     def start_pipeline(
-        self, model_name: str, files: list[tuple[str, bytes, str]], owner: str | None = None
+        self,
+        model_name: str,
+        files: list[tuple[str, bytes, str]],
+        owner: str | None = None,
+        dataset_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        form = {"model_name": model_name, **({"owner": owner} if owner else {})}
+        form: dict[str, Any] = {"model_name": model_name, **({"owner": owner} if owner else {})}
+        if dataset_ids:
+            form["dataset_ids"] = dataset_ids
         uploads = [("files", (name, content, ctype or "application/octet-stream")) for name, content, ctype in files]
         return dict(self.data("POST", "/api/v1/pipelines", data=form, files=uploads))
+
+    def upload_dataset(
+        self,
+        filename: str,
+        content: bytes,
+        role: str = "other",
+        schema_name: str | None = None,
+        model_id: str | None = None,
+        name: str | None = None,
+    ) -> dict[str, Any]:
+        form = {"role": role, "name": name or filename}
+        if schema_name:
+            form["schema_name"] = schema_name
+        if model_id:
+            form["model_id"] = model_id
+        upload = [("file", (filename, content, "application/octet-stream"))]
+        return dict(self.data("POST", "/api/v1/datasets", data=form, files=upload))
+
+    def datasets(self, model_id: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
+        return self.items("/api/v1/datasets", model_id=model_id, role=role)[0]
 
     def job(self, job_id: str) -> dict[str, Any]:
         return dict(self.data("GET", f"/api/v1/jobs/{job_id}"))
@@ -134,6 +160,12 @@ class ApiClient:
 
     def rebuilds(self, model_id: str) -> list[dict[str, Any]]:
         return self.items(f"/api/v1/models/{model_id}/rebuilds")[0]
+
+    def rebuild_code(self, model_id: str, rebuild_id: str) -> str:
+        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", format="code")
+
+    def rebuild_certificate(self, model_id: str, rebuild_id: str) -> str:
+        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", format="certificate")
 
     def runs(self, model_id: str) -> list[dict[str, Any]]:
         return self.items(f"/api/v1/models/{model_id}/runs")[0]

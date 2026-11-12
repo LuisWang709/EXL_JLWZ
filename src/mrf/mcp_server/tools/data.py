@@ -23,6 +23,8 @@ async def profile_data(dataset_id: str, columns: list[str] | None = None, max_to
          "warnings": [str]}
     Never returns raw rows (privacy rule). Raises MRF-1404 / MRF-1003.
     """
+    from pandas.api.types import is_bool_dtype, is_numeric_dtype
+
     repo = get_repo()
     dataset = await repo.get(Collections.DATASETS, dataset_id, Dataset)  # missing -> MRF-1404
 
@@ -59,7 +61,7 @@ async def profile_data(dataset_id: str, columns: list[str] | None = None, max_to
         min_v: float | None = None
         max_v: float | None = None
         mean_v: float | None = None
-        if np.issubdtype(series.dtype, np.number):
+        if is_numeric_dtype(series) and not is_bool_dtype(series):  # np.issubdtype rejects pandas string dtypes
             min_v = _finite_or_none(series.min())
             max_v = _finite_or_none(series.max())
             mean_v = _finite_or_none(series.mean())

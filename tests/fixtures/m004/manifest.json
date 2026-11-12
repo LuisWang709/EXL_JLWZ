@@ -1,0 +1,18 @@
+{
+  "model_id": "M004",
+  "name": "Personal loan pricing margin model",
+  "source_language": "SAS",
+  "algorithm": "PROC REG (ordinary least squares)",
+  "target": "price_margin (percentage points over funding cost)",
+  "record_id_column": "id",
+  "score_column": "margin_legacy",
+  "link": "identity",
+  "tolerance": 1e-06,
+  "feature_columns": [
+    "term_years",
+    "loan_amount",
+    "risk_grade_num",
+    "ltv"
+  ],
+  "synthetic": true
+}

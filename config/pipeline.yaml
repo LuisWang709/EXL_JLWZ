@@ -36,6 +36,9 @@ parity:
   abs_tolerance: 1.0e-6          # per-record score difference
   match_rate_required: 1.0
 
+rebuild:
+  llm_attempts: 3               # attempts written by the LLM; later attempts transcribe the legacy estimates
+
 gates:
   H1: { name: doc_approval, required: true }
   H2: { name: validation_signoff, required: true }

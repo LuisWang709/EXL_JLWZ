@@ -80,14 +80,13 @@ async def run_sandbox(code: str, inputs: dict[str, str] | None = None, timeout_s
     try:
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
-            "-c",
-            wrapper,
-            stdin=asyncio.subprocess.DEVNULL,
+            "-",  # program on stdin: no command-line length limit (Windows caps arguments at ~32k characters)
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(wrapper.encode("utf-8")), timeout=timeout)
         except TimeoutError:
             proc.kill()
             await proc.wait()
@@ -150,9 +149,7 @@ def _build_wrapper(code: str, inputs: dict[str, str]) -> str:
         "import sys, json\n"
         "# drop '' (cwd) and the CLI shim so generated code cannot import local project files\n"
         "sys.path = [p for p in sys.path if p and 'shim' not in p]\n"
-        "_INPUTS = json.loads(" + repr(inputs_json) + ")\n"
-        + code
-        + "\n"
+        "_INPUTS = json.loads(" + repr(inputs_json) + ")\n" + code + "\n"
     )
 
 
@@ -178,45 +175,36 @@ def _extract_result(stdout: str) -> dict[str, Any]:
 
 async def run_parity(model_id: str, candidate_code_uri: str, fixture_id: str | None = None) -> dict[str, Any]:
     """Score the legacy fixture with the candidate python model and compare record by record
-    with the legacy SAS/R scores (tests/fixtures/<model>/).
+    with the legacy SAS/R scores.
+
+    The fixture is looked up by ``fixture_id`` (default: ``model_id``): an uploaded legacy model package staged
+    under ``<data_dir>/fixtures/`` first, then the built-in ``tests/fixtures/<id>/``.
 
     Returns ParityResult as dict: {"passed", "n_records", "n_mismatches", "max_abs_diff",
     "tolerance", "mismatch_examples": [...], "detail": {...}}. Tolerance comes from
     config/pipeline.yaml (parity.abs_tolerance).
     """
-    fixture = (fixture_id or model_id).lower()
-    fixture_dir = Path("tests") / "fixtures" / fixture
+    from mrf.agents.rebuild.execution import ScoringError, score_csv
+    from mrf.agents.rebuild.fixtures import load_fixture
 
     policy = get_policy()
     tolerance = float(policy.get("parity", {}).get("abs_tolerance", 1.0e-6))
     match_rate_required = float(policy.get("parity", {}).get("match_rate_required", 1.0))
 
-    manifest, legacy, inputs = await _load_fixture(fixture_dir)
-    score_col = manifest.get("score_column", "pd_legacy")
-    record_id_col = manifest.get("record_id_column", "id")
+    fixture = await asyncio.to_thread(load_fixture, fixture_id or model_id)
+    _manifest, legacy, inputs = await _load_fixture(fixture.path)
+    score_col = fixture.score_column
+    record_id_col = fixture.id_column
+    if score_col not in legacy.columns:
+        raise MRFError(MRFCode.NOT_FOUND, f"fixture has no score column '{score_col}'", field="fixture_id")
 
     candidate_code = await _load_candidate_code(candidate_code_uri)
-
-    # Execute candidate code inside the sandbox; feed the input sample as CSV text.
-    input_csv = inputs.to_csv(index=False)
-    exec_code = (
-        "import sys, json\n"
-        "_input_csv = '''" + input_csv.replace("'''", "\\'\\'\\'") + "'''\n"
-        + candidate_code
-        + "\n_result = score(_input_csv)\n"
-        "print(json.dumps(_result))\n"
-    )
-
-    result = await run_sandbox(exec_code)
-    if result["exit_code"] != 0:
-        return _parity_result(False, len(legacy), len(legacy), None, tolerance, detail={"sandbox": result})
-
-    preds = result.get("outputs", {})
-    if isinstance(preds, dict):
-        preds = preds.get("scores") or preds.get("predictions") or preds.get("values")
-    if preds is None:
+    try:
+        preds = await score_csv(candidate_code, inputs.to_csv(index=False))
+    except ScoringError as exc:
+        sandbox = {k: str(v)[-1500:] for k, v in exc.sandbox.items() if k in {"exit_code", "stderr"}}
         return _parity_result(
-            False, len(legacy), len(legacy), None, tolerance, detail={"error": "candidate did not emit scores"}
+            False, len(legacy), len(legacy), None, tolerance, detail={"error": str(exc), "sandbox": sandbox}
         )
 
     legacy_scores = legacy[score_col].to_numpy(dtype=float)
@@ -225,20 +213,24 @@ async def run_parity(model_id: str, candidate_code_uri: str, fixture_id: str | N
         return _parity_result(False, len(legacy), len(legacy), None, tolerance, detail=detail)
 
     diff = np.abs(np.asarray(preds, dtype=float) - legacy_scores)
+    diff = np.where(np.isnan(diff), np.inf, diff)  # a missing score never matches
     n_records = len(legacy_scores)
-    n_mismatches = int((diff > tolerance).sum())
-    max_abs_diff = float(diff.max())
+    mismatch = diff > tolerance
+    n_mismatches = int(mismatch.sum())
+    finite = diff[np.isfinite(diff)]
+    max_abs_diff = float(finite.max()) if len(finite) else None
     match_rate = (n_records - n_mismatches) / n_records if n_records else 0.0
-    passed = max_abs_diff <= tolerance and match_rate >= match_rate_required
+    passed = n_mismatches == 0 and match_rate >= match_rate_required and n_records > 0
 
+    ids = legacy[record_id_col].tolist() if record_id_col in legacy.columns else list(range(n_records))
     # a few worst mismatches for debugging / agent feedback
     worst_idx = np.argsort(diff)[::-1][:5]
     mismatch_examples = [
         {
-            record_id_col: _jsonable(legacy.iloc[i].get(record_id_col)),
+            record_id_col: _jsonable(ids[i]),
             "legacy": float(legacy_scores[i]),
-            "candidate": float(preds[i]),
-            "abs_diff": float(diff[i]),
+            "candidate": None if np.isnan(preds[i]) else float(preds[i]),
+            "abs_diff": None if not np.isfinite(diff[i]) else float(diff[i]),
         }
         for i in worst_idx
         if diff[i] > tolerance
@@ -256,6 +248,8 @@ async def run_parity(model_id: str, candidate_code_uri: str, fixture_id: str | N
             "match_rate_required": match_rate_required,
             "score_column": score_col,
             "model_id": model_id,
+            "fixture_id": fixture.fixture_id,
+            "mismatch_ids": [_jsonable(ids[i]) for i in np.flatnonzero(mismatch)[:2000]],
         },
     )
 

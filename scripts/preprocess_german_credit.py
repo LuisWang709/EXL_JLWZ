@@ -48,14 +48,25 @@ CREDIT_HISTORY_LABELS = {
 }
 
 
+#: UCI Statlog column order of ``german.data`` (space separated, no header)
+UCI_COLUMNS = [
+    "checking_status", "duration_months", "credit_history", "purpose", "credit_amount", "savings",
+    "employment_since", "installment_rate", "personal_status", "other_debtors", "residence_since", "property",
+    "age", "other_installment_plans", "housing", "existing_credits", "job", "dependants", "telephone",
+    "foreign_worker", "class",
+]  # fmt: skip
+
+
 def load_raw() -> pd.DataFrame:
-    """Load the column-named German Credit CSV produced by the data step."""
+    """Load German Credit: the column-named CSV if present, else the UCI ``german_credit.data`` file
+    that ``get_data.py`` downloads (space separated, no header)."""
     path = RAW / "german_credit.csv"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found. Run `uv run python scripts/get_data.py` first."
-        )
-    return pd.read_csv(path)
+    if path.exists():
+        return pd.read_csv(path)
+    uci = RAW / "german_credit.data"
+    if not uci.exists():
+        raise FileNotFoundError(f"{uci} not found. Run `uv run python scripts/get_data.py` first.")
+    return pd.read_csv(uci, sep=r"\s+", header=None, names=UCI_COLUMNS)
 
 
 def recode_target(df: pd.DataFrame) -> pd.DataFrame:
@@ -110,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
 
     df = recode_target(df)
     df = engineer_features(df)
+    df.insert(0, "id", range(1, len(df) + 1))  # stable record id (the parity fixture uses the same ids)
     print(f"After recode + feature engineering: {df.shape[0]} rows x {df.shape[1]} cols")
     print(f"Target distribution (default_flag):\n{df['default_flag'].value_counts().sort_index()}")
 
@@ -120,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     CLEAN.mkdir(parents=True, exist_ok=True)
+    for frame in (df, train, test):
+        frame["credit_amount"] = frame["credit_amount"].astype(float)
     df.to_csv(CLEAN / "german_credit_clean.csv", index=False)
     train.to_csv(CLEAN / "german_credit_train.csv", index=False)
     test.to_csv(CLEAN / "german_credit_test.csv", index=False)

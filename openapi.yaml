@@ -331,6 +331,14 @@ paths:
       responses:
         "202": { $ref: "#/components/responses/Accepted" }
         "404": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [rebuilds]
+      operationId: listRebuilds
+      x-owner: A2
+      summary: Rebuild attempts, newest first (additive)
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
 
   /api/v1/models/{model_id}/rebuilds/{rebuild_id}:
     get:
@@ -340,9 +348,10 @@ paths:
       parameters:
         - $ref: "#/components/parameters/ModelId"
         - { name: rebuild_id, in: path, required: true, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [json, code, certificate], default: json } }
       responses:
         "200":
-          description: ok
+          description: ok (format=code -> text/x-python, format=certificate -> text/html; additive)
           content:
             application/json:
               schema:
@@ -356,13 +365,29 @@ paths:
       tags: [datasets]
       operationId: registerDataset
       x-owner: A2
-      summary: Register a dataset reference (any format; file stays in Blob/local storage)
+      summary: Register a dataset - a JSON reference to a stored file, or a file upload (multipart, additive)
+      description: >-
+        application/json: `uri` must point at a file already in the blob store. multipart/form-data: `file` plus
+        the DatasetCreate fields as form values; the file is screened (MRF-1004/1005) and stored. Either way the
+        file is read once: unreadable -> MRF-1003; `row_count` and `columns` are filled from the data.
       parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/DatasetCreate" }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: "csv, tsv, parquet, feather, xlsx, json, jsonl" }
+                name: { type: string }
+                role: { type: string, enum: [development, out_of_time, validation, monitoring_batch, reference, other] }
+                model_id: { type: string }
+                schema_name: { type: string }
+                read_options: { type: string, description: JSON object }
+                metadata: { type: string, description: JSON object }
       responses:
         "201":
           description: created
@@ -372,7 +397,21 @@ paths:
                 allOf:
                   - $ref: "#/components/schemas/Envelope"
                   - properties: { data: { $ref: "#/components/schemas/Dataset" } }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [datasets]
+      operationId: listDatasets
+      x-owner: A2
+      summary: Registered datasets (additive)
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - { name: model_id, in: query, schema: { type: string } }
+        - { name: role, in: query, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
 
   /api/v1/datasets/{dataset_id}:
     get:
@@ -433,6 +472,14 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [runs]
+      operationId: listRuns
+      x-owner: A2
+      summary: Runs, newest first (additive)
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      responses:
+        "200": { $ref: "#/components/responses/PagedOk" }
 
   /api/v1/models/{model_id}/runs/{run_id}:
     get:
