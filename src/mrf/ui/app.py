@@ -38,6 +38,8 @@ if common.signed_in():
         except common.ApiError as exc:
             st.caption(f"Health: {exc}")
         if st.button("Sign out"):
+            client.close()
             st.session_state.clear()
             st.rerun()
+    common.show_flash()
     nav.run()

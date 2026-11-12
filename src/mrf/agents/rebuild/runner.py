@@ -120,6 +120,12 @@ def _log_mlflow(name: str, params: dict[str, Any], metrics: dict[str, Any]) -> s
 
 class ModelRunnerImpl:
     async def run(self, ctx: StepContext, dataset_id: str, kind: str = "usability") -> Run:
+        from mrf.monitoring.frames import frame_scope
+
+        with frame_scope():
+            return await self._run(ctx, dataset_id, kind)
+
+    async def _run(self, ctx: StepContext, dataset_id: str, kind: str) -> Run:
         from mrf.monitoring.frames import load_frame, run_scores
 
         started = time.monotonic()

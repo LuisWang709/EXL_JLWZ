@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mrf.core.states import PipelineState
 
@@ -331,7 +331,21 @@ class Alert(_Base):
     message: str
     detail: dict[str, Any] = Field(default_factory=dict)
     acknowledged: bool = False
+    status: Literal["open", "acknowledged", "closed"] = "open"
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
+    closed_by: str | None = None
+    closed_at: datetime | None = None
+    resolution: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _legacy_status(self) -> Alert:
+        if self.status in {"acknowledged", "closed"}:
+            self.acknowledged = True
+        elif self.acknowledged:
+            self.status = "acknowledged"
+        return self
 
 
 ReportKind = Literal["monitoring", "validation"]

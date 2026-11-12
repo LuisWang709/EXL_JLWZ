@@ -1,8 +1,7 @@
 """Which implementation the orchestrator uses for each Protocol.
 
-Convention over configuration: put your class at the path below with a no-argument
-constructor and it is picked up automatically - no edit to this file needed.
-Until the module exists, the stub from ``stubs.py`` is used.
+Concrete classes are wired explicitly in ``_implementations``. Missing implementations fail at startup.
+No-argument constructors keep assembly simple; tests may override individual slots.
 
     slot              module:Class                                   owner
     classifier        mrf.agents.classify.agent:ClassifierAgent      A1
@@ -14,14 +13,12 @@ Until the module exists, the stub from ``stubs.py`` is used.
     quality_checker   mrf.monitoring.quality:QualityCheckerImpl      A4
     monitoring        mrf.monitoring.registrar:MonitoringRegistrarImpl  A4
 
-Force stubs (e.g. CI, or while your module is half-done): ``MRF_STUBS=all`` or ``MRF_STUBS=rater,rebuilder``.
+Local opt-in stubs: ``MRF_STUBS=all`` or ``MRF_STUBS=rater,rebuilder`` (forbidden in dev/demo).
 Tests: ``Registry.stubs(rater=StubRater(pass_on_attempt=3))``.
 """
 
 from __future__ import annotations
 
-import importlib
-import logging
 import os
 from dataclasses import dataclass, fields
 from typing import Any
@@ -40,18 +37,23 @@ from mrf.contracts.agents import (
 from mrf.core import MRFCode, MRFError
 from mrf.orchestrator import stubs
 
-log = logging.getLogger(__name__)
 
-IMPLEMENTATIONS: dict[str, str] = {
-    "classifier": "mrf.agents.classify.agent:ClassifierAgent",
-    "doc_writer": "mrf.agents.doc.agent:DocAgent",
-    "rater": "mrf.rating.rater:DocRater",
-    "rebuilder": "mrf.agents.rebuild.agent:RebuildAgent",
-    "runner": "mrf.agents.rebuild.runner:ModelRunnerImpl",
-    "report_builder": "mrf.reporting.builder:ReportBuilderImpl",
-    "quality_checker": "mrf.monitoring.quality:QualityCheckerImpl",
-    "monitoring": "mrf.monitoring.registrar:MonitoringRegistrarImpl",
-}
+def _implementations() -> dict[str, type[Any]]:
+    """Explicit composition root. Missing production code is an import error, never a stub."""
+    from mrf.agents.classify.agent import ClassifierAgent
+    from mrf.agents.doc.agent import DocAgent
+    from mrf.agents.rebuild.agent import RebuildAgent
+    from mrf.agents.rebuild.runner import ModelRunnerImpl
+    from mrf.monitoring.quality import QualityCheckerImpl
+    from mrf.monitoring.registrar import MonitoringRegistrarImpl
+    from mrf.rating.rater import DocRater
+    from mrf.reporting.builder import ReportBuilderImpl
+
+    return {
+        "classifier": ClassifierAgent, "doc_writer": DocAgent, "rater": DocRater,
+        "rebuilder": RebuildAgent, "runner": ModelRunnerImpl, "report_builder": ReportBuilderImpl,
+        "quality_checker": QualityCheckerImpl, "monitoring": MonitoringRegistrarImpl,
+    }
 
 STUBS: dict[str, type[Any]] = {
     "classifier": stubs.StubClassifier,
@@ -87,6 +89,10 @@ class Registry:
         forced = {s.strip() for s in os.environ.get("MRF_STUBS", "").split(",") if s.strip()}
         if forced and get_settings().env != "local":
             raise MRFError(MRFCode.INVALID_STATE, "MRF_STUBS is only allowed in the local environment")
+        unknown = forced - set(STUBS) - {"all"}
+        if unknown:
+            raise MRFError(MRFCode.INPUT_BODY, f"unknown stub slots: {', '.join(sorted(unknown))}")
+        implementations = {} if "all" in forced else _implementations()
         values: dict[str, Any] = {}
         for f in fields(cls):
             if f.name in overrides:
@@ -94,28 +100,8 @@ class Registry:
             elif "all" in forced or f.name in forced:
                 values[f.name] = STUBS[f.name]()
             else:
-                values[f.name] = _load(f.name)
+                values[f.name] = implementations[f.name]()
         return cls(**values)
 
     def describe(self) -> dict[str, str]:
         return {f.name: type(getattr(self, f.name)).__qualname__ for f in fields(self)}
-
-
-def _load(slot: str) -> Any:
-    module_name, _, class_name = IMPLEMENTATIONS[slot].partition(":")
-    try:
-        module = importlib.import_module(module_name)
-    except ModuleNotFoundError as exc:
-        if exc.name and module_name.startswith(exc.name):  # the module itself is missing -> not written yet
-            if get_settings().env != "local":
-                raise MRFError(MRFCode.INVALID_STATE, f"required agent '{slot}' is unavailable") from exc
-            log.info("registry: %s not implemented yet, using stub", slot)
-            return STUBS[slot]()
-        raise  # a dependency inside the module is missing: surface it
-    impl = getattr(module, class_name, None)
-    if impl is None:
-        if get_settings().env != "local":
-            raise MRFError(MRFCode.INVALID_STATE, f"required agent '{slot}' is unavailable")
-        log.warning("registry: %s has no %s, using stub", module_name, class_name)
-        return STUBS[slot]()
-    return impl()

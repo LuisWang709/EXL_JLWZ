@@ -30,17 +30,19 @@ def page() -> None:
     cols[0].metric("Models in inventory", len(models))
     cols[1].metric("Pipelines working", sum(1 for p in pipes if p["state"] not in DONE | WAITING))
     cols[2].metric("Waiting for a person", len(pending))
-    cols[3].metric("Open monitoring alerts", open_alerts[1] if open_alerts else 0)
+    cols[3].metric("Unacknowledged alerts", open_alerts[1] if open_alerts else 0)
 
     with st.expander("Start a new model: upload SAS / R / Python code", expanded=not pipes):
-        with st.form("start", clear_on_submit=True):
+        datasets = guard(c.datasets, "Registered datasets") or []
+        available = {d["dataset_id"]: d for d in datasets if d.get("role") != "monitoring_batch"}
+        with st.form("start", clear_on_submit=False):
             name = st.text_input("Model name", placeholder="e.g. M001 PD scorecard")
             owner = st.text_input("Owner (optional)")
             files = st.file_uploader(
                 "Model code, plus the legacy package if you have one (manifest.json, input_sample.csv, "
                 "legacy_scores.csv, coefficients.json)",
                 accept_multiple_files=True,
-                type=["sas", "r", "py", "txt", "csv", "json"],
+                type=["sas", "r", "py", "ipynb", "zip", "egp", "txt", "csv", "json"],
             )
             st.caption(
                 "The rebuild is proven against the legacy scores in the package. Models named M001, M002 or M004 "
@@ -48,6 +50,10 @@ def page() -> None:
             )
             dev = st.file_uploader("Development data (optional)", type=DATA_TYPES, key="ds_dev")
             oot = st.file_uploader("Hold-out / out-of-time data (optional)", type=DATA_TYPES, key="ds_oot")
+            selected = st.multiselect("Use registered datasets (optional)", list(available),
+                format_func=lambda i: f"{available[i]['name']} · {available[i]['role']} · "
+                                      f"{available[i].get('row_count')} rows")
+            st.caption("Use cleaned scoring inputs. Raw training data alone is not a parity reference package.")
             schema = st.selectbox("Data schema for the quality check", ["(none)", "german_credit_clean"])
             submitted = st.form_submit_button("Start pipeline", type="primary")
         if submitted:
@@ -56,7 +62,7 @@ def page() -> None:
             else:
                 uploads = [(f.name, f.getvalue(), f.type or "text/plain") for f in files]
                 schema_name = None if schema == "(none)" else schema
-                dataset_ids: list[str] = []
+                dataset_ids: list[str] = list(selected)
                 failed = False
                 for upload, role in ((dev, "development"), (oot, "out_of_time")):
                     if upload is None:

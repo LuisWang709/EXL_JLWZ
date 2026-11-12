@@ -6,6 +6,7 @@ import copy
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
@@ -143,6 +144,20 @@ async def test_validation_report_is_the_h2_pack(tmp_path: Path) -> None:
     assert report.summary["recommendation"].startswith("Do not approve")
     assert report.summary["number_check"]["passed"]
     assert report.summary["metrics"]["documentation.rating_total"] >= 80
+
+
+async def test_report_views_share_gather_but_keep_independent_ledgers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = await _pipeline_ctx(tmp_path)
+    gather = AsyncMock(wraps=builder.gather)
+    monkeypatch.setattr(builder, "gather", gather)
+    analysis, validation = await ReportBuilderImpl().build_many(ctx, ["analysis", "validation"])
+    assert gather.await_count == 1
+    assert analysis.report_id != validation.report_id and analysis.artifact != validation.artifact
+    assert analysis.summary["metrics"] == validation.summary["metrics"]
+    assert analysis.summary["number_check"]["passed"] and validation.summary["number_check"]["passed"]
+    assert analysis.summary["numbers"] is not validation.summary["numbers"]
 
 
 @pytest.mark.parametrize(

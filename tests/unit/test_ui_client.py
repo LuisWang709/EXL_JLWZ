@@ -87,3 +87,23 @@ def test_unreachable_api() -> None:
     with pytest.raises(ApiError) as err:
         ApiClient("http://down.test", "k", transport=httpx.MockTransport(down)).models()
     assert err.value.code == "NETWORK"
+
+
+def test_interrupted_download_is_an_api_error() -> None:
+    def disconnected(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadError("connection reset", request=request)
+
+    client = ApiClient("http://api.test", "k", transport=httpx.MockTransport(disconnected))
+    with pytest.raises(ApiError) as err:
+        client.report_html("model", "report")
+    assert err.value.code == "NETWORK"
+
+
+def test_error_keeps_request_id_for_support() -> None:
+    def error(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json=envelope(None, "error", "MRF-3201"))
+
+    client = ApiClient("http://api.test", "k", transport=httpx.MockTransport(error))
+    with pytest.raises(ApiError) as err:
+        client.model("m")
+    assert err.value.request_id == "r"

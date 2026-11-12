@@ -60,6 +60,10 @@ class MonitoringRegistrarImpl:
         )
         await repo.put(Collections.SCHEDULES, model_id, schedule)
 
+        if ctx.artifacts.get("revalidation_dataset_ids"):
+            # Approval of a drift investigation must not silently redefine the healthy reference population.
+            return
+
         baseline = await _baseline_dataset(ctx)
         if baseline is None:
             log.warning("monitoring: no registered baseline dataset for %s - drift cannot be computed", model_id)

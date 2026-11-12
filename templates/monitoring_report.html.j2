@@ -25,7 +25,8 @@ th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-
 <div class="box">
   Batches monitored: {{ num("summary.batches", "d") }} &nbsp;·&nbsp;
   green {{ num("summary.green", "d") }}, amber {{ num("summary.amber", "d") }}, red {{ num("summary.red", "d") }}
-  &nbsp;·&nbsp; open alerts {{ num("summary.alerts_open", "d") }}
+  &nbsp;·&nbsp; unresolved alerts {{ num("summary.alerts_open", "d") }}
+  (unacknowledged {{ num("summary.alerts_unacknowledged", "d") }})
   {% if view.schedule %}&nbsp;·&nbsp; schedule <span class="meta">{{ view.schedule.cron }}</span> UTC
   ({{ "enabled" if view.schedule.enabled else "paused" }}){% endif %}
 </div>
@@ -90,16 +91,18 @@ th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-
 {% endif %}
 
 <h2>Alerts</h2>
+<p class="muted">Most recent alerts are shown below; summary counts include the full alert history.</p>
 {% if view.alerts %}
 <table>
-  <tr><th>Raised</th><th>Severity</th><th>Kind</th><th>Message (as recorded)</th><th>Acknowledged</th></tr>
+  <tr><th>Raised</th><th>Severity</th><th>Kind</th><th>Message (as recorded)</th><th>Status / resolution</th></tr>
   {% for a in view.alerts %}
   <tr>
     <td><span class="meta">{{ a.at }}</span></td>
     <td>{{ m.badge(a.severity) }}</td>
     <td>{{ a.kind | replace("_", " ") }}</td>
     <td><span class="meta">{{ a.message }}</span></td>
-    <td>{{ "yes" if a.acknowledged else "no" }}</td>
+    <td>{{ a.status }}{% if a.handled_by %} · <span class="meta">{{ a.handled_by }}</span>{% endif %}
+      {% if a.resolution %}<br><span class="meta">{{ a.resolution }}</span>{% endif %}</td>
   </tr>
   {% endfor %}
 </table>
@@ -113,8 +116,8 @@ th{background:#eef1f6}.muted{color:#5b6475;font-size:.9em}.badge{display:inline-
   <tr><td>Population stability index: amber from</td><td>{{ num("thresholds.psi_amber", ".2f") }}</td></tr>
   <tr><td>Population stability index: red above</td><td>{{ num("thresholds.psi_red", ".2f") }}</td></tr>
   <tr><td>Gini drop against the baseline: red above</td><td>{{ num("thresholds.gini_drop_red", ".2f") }}</td></tr>
-  <tr><td>Missing rate in any column: amber from</td><td>{{ num("thresholds.missing_rate_amber", ".1%") }}</td></tr>
-  <tr><td>Missing rate in any column: red from</td><td>{{ num("thresholds.missing_rate_red", ".1%") }}</td></tr>
+  <tr><td>Missing rate in any column: amber above</td><td>{{ num("thresholds.missing_rate_amber", ".1%") }}</td></tr>
+  <tr><td>Missing rate in any column: red above</td><td>{{ num("thresholds.missing_rate_red", ".1%") }}</td></tr>
 </table>
 
 <p class="muted">Every number in this report is rendered from a recorded source (monitoring metrics of each batch,

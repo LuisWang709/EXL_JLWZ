@@ -569,12 +569,68 @@ paths:
         - { name: model_id, in: query, schema: { type: string } }
         - { name: severity, in: query, schema: { type: string, enum: [amber, red] } }
         - { name: acknowledged, in: query, schema: { type: boolean } }
+        - { name: status, in: query, schema: { type: string, enum: [open, acknowledged, closed] }, description: "Handling state, including legacy alerts without a stored status." }
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
       responses:
         "200": { $ref: "#/components/responses/PagedOk" }
 
+  /api/v1/monitoring/alerts/{alert_id}/acknowledge:
+    post:
+      tags: [monitoring]
+      operationId: acknowledgeAlert
+      x-owner: A4
+      summary: Record alert ownership; repeated calls preserve the first acknowledgement.
+      parameters:
+        - { name: alert_id, in: path, required: true, schema: { type: string } }
+        - { name: X-Operator, in: header, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200": { $ref: "#/components/responses/AlertOk" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
+  /api/v1/monitoring/alerts/{alert_id}/close:
+    post:
+      tags: [monitoring]
+      operationId: closeAlert
+      x-owner: A4
+      summary: Close with an operator and resolution; closed alerts and historical metrics are preserved.
+      parameters:
+        - { name: alert_id, in: path, required: true, schema: { type: string } }
+        - { name: X-Operator, in: header, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resolution]
+              properties:
+                resolution: { type: string, minLength: 1, maxLength: 2000, description: "Nonblank action taken / resolution." }
+      responses:
+        "200": { $ref: "#/components/responses/AlertOk" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
   /api/v1/monitoring/schedules/{model_id}:
+    get:
+      tags: [monitoring]
+      operationId: getSchedule
+      x-owner: A4
+      summary: Saved schedule, healthy baseline and authoritative monitoring thresholds.
+      parameters: [{ $ref: "#/components/parameters/ModelId" }]
+      responses:
+        "200":
+          description: "Unconfigured models return configured=false and enabled=false with the default cron."
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties: { data: { $ref: "#/components/schemas/MonitoringConfiguration" } }
+        "404": { $ref: "#/components/responses/Error" }
     put:
       tags: [monitoring]
       operationId: putSchedule
@@ -656,6 +712,14 @@ components:
     ReviewId: { name: review_id, in: path, required: true, schema: { type: string } }
 
   responses:
+    AlertOk:
+      description: Alert with handling history.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Envelope"
+              - properties: { data: { $ref: "#/components/schemas/Alert" } }
     Ok:
       description: success envelope
       content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } }
@@ -1028,7 +1092,30 @@ components:
         message: { type: string }
         detail: { type: object }
         acknowledged: { type: boolean }
+        status: { type: string, enum: [open, acknowledged, closed], default: open }
+        acknowledged_by: { type: [string, "null"] }
+        acknowledged_at: { type: [string, "null"], format: date-time }
+        closed_by: { type: [string, "null"] }
+        closed_at: { type: [string, "null"], format: date-time }
+        resolution: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
+    MonitoringConfiguration:
+      allOf:
+        - $ref: "#/components/schemas/Schedule"
+        - type: object
+          properties:
+            configured: { type: boolean }
+            baseline_dataset_id: { type: [string, "null"] }
+            baseline_run_id: { type: [string, "null"] }
+            thresholds:
+              type: object
+              properties:
+                psi_amber: { type: number }
+                psi_red: { type: number }
+                gini_drop_red: { type: number }
+                min_rows: { type: integer }
+                missing_rate_amber: { type: number }
+                missing_rate_red: { type: number }
     Schedule:
       type: object
       required: [cron]

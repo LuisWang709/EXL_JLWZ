@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from threading import RLock
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlparse
 
@@ -12,6 +18,32 @@ if TYPE_CHECKING:
 
 #: column names accepted as "the model score" in a runner output file, in order of preference
 SCORE_COLUMNS = ("score", "pd", "pd_python", "prediction", "probability")
+
+
+@dataclass
+class _Snapshots:
+    values: dict[str, Any] = field(default_factory=dict)
+    lock: Any = field(default_factory=RLock)
+
+
+_snapshots: ContextVar[_Snapshots | None] = ContextVar("monitoring_snapshots", default=None)
+
+
+@contextmanager
+def frame_scope() -> Iterator[None]:
+    """Share read-only file snapshots within one operation, including its worker threads.
+
+    Nested quality/scoring/drift operations reuse the scope. Nothing survives the batch or request,
+    so a subsequent operation always observes newly uploaded/replaced files.
+    """
+    if _snapshots.get() is not None:
+        yield
+        return
+    token = _snapshots.set(_Snapshots())
+    try:
+        yield
+    finally:
+        _snapshots.reset(token)
 
 
 def _local_uri(uri: str) -> str:
@@ -31,6 +63,17 @@ def _local_uri(uri: str) -> str:
 
 def load_frame(ds: Dataset) -> pd.DataFrame:
     """Read a dataset; ``format=other`` falls back to the uri suffix (Dataset.format defaults to ``other``)."""
+    snapshots = _snapshots.get()
+    if snapshots is None:
+        return _read_frame(ds)
+    key = json.dumps([ds.uri, ds.format.value, ds.read_options], sort_keys=True, default=str)
+    with snapshots.lock:
+        if key not in snapshots.values:
+            snapshots.values[key] = _read_frame(ds)
+        return snapshots.values[key]
+
+
+def _read_frame(ds: Dataset) -> pd.DataFrame:
     from mrf.data import infer_format, read_any
 
     update: dict[str, Any] = {"uri": _local_uri(ds.uri)}
@@ -43,6 +86,17 @@ def run_scores(run: Run | None) -> pd.Series | None:
     """Scores written by the runner (an output csv/parquet with a score column), or None if there are none."""
     if run is None:
         return None
+    snapshots = _snapshots.get()
+    if snapshots is None:
+        return _read_scores(run)
+    key = "scores:" + json.dumps([a.model_dump(mode="json") for a in run.outputs], sort_keys=True)
+    with snapshots.lock:
+        if key not in snapshots.values:
+            snapshots.values[key] = _read_scores(run)
+        return snapshots.values[key]
+
+
+def _read_scores(run: Run) -> pd.Series | None:
     import pandas as pd
 
     for art in run.outputs:

@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from mrf.ui.common import api, guard, rag_chip, when
+from mrf.ui.common import api, guard, rag_chip, track_job, when
 
 
 def _inventory(models: list[dict[str, Any]]) -> None:
@@ -87,12 +87,15 @@ def _documents(model_id: str) -> None:
 
 
 def _rebuilds(model_id: str) -> None:
+    active = st.session_state.get(f"rebuild-job-{model_id}-active", False)
+    st.fragment(_rebuild_detail, run_every=3 if active else None)(model_id)
+
+
+def _rebuild_detail(model_id: str) -> None:
     c = api()
     job_key = f"rebuild-job-{model_id}"
-    job = None
-    if st.session_state.get(job_key):
-        job = guard(lambda: c.job(st.session_state[job_key]), "Rebuild job")
-    busy = bool(job and job.get("status") in {"queued", "running"})
+    job = track_job(job_key, "Rebuild")
+    busy = bool(st.session_state.get(job_key + "-active"))
     with st.form(f"start-rebuild-{model_id}"):
         fixture_id = st.text_input(
             "Parity fixture ID (optional)",
@@ -107,16 +110,10 @@ def _rebuilds(model_id: str) -> None:
         started = guard(lambda: c.start_rebuild(model_id, fixture_id.strip() or None), "Start rebuild")
         if started:
             st.session_state[job_key] = started["job_id"]
+            st.session_state[job_key + "-active"] = True
             st.rerun()
     if job:
-        if busy:
-            st.info(f"Rebuild job {job['job_id']}: {job['status']}. Refresh to check progress.")
-        elif job.get("status") == "failed":
-            failure = job.get("error") or {}
-            st.error(f"Rebuild failed: {failure.get('code', '')} {failure.get('message', 'See job details')}")
-        elif job.get("status") == "cancelled":
-            st.warning("The rebuild job was cancelled.")
-        else:
+        if job.get("status") == "succeeded":
             result = job.get("result") or {}
             if result.get("passed"):
                 st.success("Rebuild job completed. The parity result and any certificate are listed below.")
@@ -226,6 +223,8 @@ def page() -> None:
         format_func=lambda i: f"{by_id[i].get('name')} · {i}",
     )
     st.session_state["model_id"] = model_id
+    if st.button("Refresh model", key="refresh-model"):
+        st.rerun()
     tabs = st.tabs(["Classification", "Documentation", "Python rebuild", "Runs", "Reports"])
     with tabs[0]:
         _classification(by_id[model_id])

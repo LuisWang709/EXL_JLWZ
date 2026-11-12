@@ -152,7 +152,7 @@ async def decide_review(review_id: str, decision: ReviewDecision, operator: str)
     return review, job
 
 
-async def trigger_revalidation(model_id: str, reason: str) -> Job:
+async def trigger_revalidation(model_id: str, reason: str, dataset_id: str | None = None) -> Job:
     """For A4 monitoring: drift above threshold -> back to usability_run (MRF-3201 if not in monitoring)."""
     from mrf.jobs import get_executor
 
@@ -163,10 +163,31 @@ async def trigger_revalidation(model_id: str, reason: str) -> Job:
     pipeline = await repo.get(Collections.PIPELINES, model.pipeline_id, Pipeline)
     if pipeline.state != PipelineState.MONITORING:
         raise MRFError(MRFCode.INVALID_STATE, f"pipeline is {pipeline.state.value}, expected monitoring")
+    pending = await repo.find(
+        Collections.JOBS, Job, where={
+            "kind": "pipeline_reenter", "status": ["queued", "running"], "resource.pipeline_id": pipeline.pipeline_id,
+        }, page_size=1,
+    )
+    if pending.items:
+        raise MRFError(MRFCode.INVALID_STATE, "revalidation is already queued; the next batch will be retried later")
+    artifacts: dict[str, Any] = {}
+    if dataset_id:
+        from mrf.contracts.models import Dataset
+        from mrf.monitoring.registrar import TAG_BASELINE_DATASET, TAG_BASELINE_RUN
+
+        dataset = await repo.get(Collections.DATASETS, dataset_id, Dataset)
+        if dataset.model_id != model_id or dataset.role != "monitoring_batch":
+            raise MRFError(MRFCode.INVALID_STATE, "revalidation batch must belong to the monitored model")
+        artifacts = {
+            "revalidation_dataset_ids": [dataset_id],
+            "reference_dataset_id": model.tags.get(TAG_BASELINE_DATASET),
+            "baseline_run_id": model.tags.get(TAG_BASELINE_RUN),
+        }
     job, _ = await get_executor().submit(
         "pipeline_reenter",
         {"pipeline_id": pipeline.pipeline_id},
-        payload={"node": "usability_run", "feedback": [reason]},
+        payload={"node": "usability_run", "feedback": [reason], "artifacts": artifacts},
+        idempotency_key=f"revalidation:{model_id}:{dataset_id}" if dataset_id else None,
     )
     return job
 

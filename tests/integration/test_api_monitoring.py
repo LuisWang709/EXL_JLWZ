@@ -56,6 +56,68 @@ async def test_alerts_filters_and_paging(client: TestClient) -> None:
     assert client.get("/api/v1/monitoring/alerts", headers=H, params={"severity": "blue"}).status_code == 422
 
 
+async def test_alert_handling_is_audited_idempotent_and_filters_legacy_records(client: TestClient) -> None:
+    repo = get_repo()
+    # Simulate a document stored before status/handling history existed.
+    await repo.put(Collections.ALERTS, "legacy", {
+        "alert_id": "legacy", "model_id": "mdl_t", "severity": "red", "kind": "drift",
+        "message": "Investigate drift", "acknowledged": True,
+    })
+    path = "/api/v1/monitoring/alerts/legacy"
+    assert client.post(path + "/acknowledge", headers=H).status_code == 422
+    assert client.get("/api/v1/monitoring/alerts", headers=H, params={"status": "acknowledged"}).json()[
+        "data"]["pagination"]["total"] == 1
+    headers = {**H, "X-Operator": "Alice"}
+    assert client.post(path + "/close", headers=headers, json={"resolution": "  "}).status_code == 422
+    assert client.post(path + "/close", headers={**H, "X-Operator": " "},
+                       json={"resolution": "Reviewed"}).status_code == 422
+    closed = client.post(path + "/close", headers=headers,
+                         json={"resolution": "Reviewed population change"}).json()["data"]
+    assert closed["status"] == "closed" and closed["closed_by"] == "Alice" and closed["closed_at"]
+    again = client.post(path + "/close", headers={**H, "X-Operator": "Bob"},
+                        json={"resolution": "Overwrite"}).json()["data"]
+    assert again == closed
+    listed = client.get("/api/v1/monitoring/alerts", headers=H, params={"status": "closed"}).json()["data"]
+    assert listed["items"][0]["resolution"] == "Reviewed population change"
+    assert client.get("/api/v1/monitoring/alerts", headers=H, params={"status": "open"}).json()[
+        "data"]["pagination"]["total"] == 0
+
+
+async def test_acknowledgement_preserves_first_operator_and_closing_records_second(client: TestClient) -> None:
+    alert = Alert(alert_id="owned", model_id="mdl_t", severity="amber", kind="drift", message="Check")
+    await get_repo().put(Collections.ALERTS, alert.alert_id, alert)
+    path = "/api/v1/monitoring/alerts/owned"
+    first = client.post(path + "/acknowledge", headers={**H, "X-Operator": "Alice"}).json()["data"]
+    again = client.post(path + "/acknowledge", headers={**H, "X-Operator": "Bob"}).json()["data"]
+    assert first == again and first["acknowledged_by"] == "Alice" and first["acknowledged_at"]
+    closed = client.post(path + "/close", headers={**H, "X-Operator": "Bob"},
+                         json={"resolution": "No action required after investigation"}).json()["data"]
+    assert closed["acknowledged_by"] == "Alice" and closed["closed_by"] == "Bob"
+
+
+async def test_status_filter_paginates_across_legacy_storage_pages(client: TestClient) -> None:
+    for i in range(105):
+        await get_repo().put(Collections.ALERTS, f"old_{i}", {
+            "alert_id": f"old_{i}", "model_id": "mdl_t", "severity": "red", "kind": "system",
+            "message": "legacy", "acknowledged": i % 2 == 0,
+        })
+    result = client.get("/api/v1/monitoring/alerts", headers=H,
+                        params={"status": "acknowledged", "page": 3, "page_size": 25}).json()["data"]
+    assert result["pagination"]["total"] == 53 and len(result["items"]) == 3
+    assert all(a["status"] == "acknowledged" for a in result["items"])
+
+
+async def test_schedule_reads_saved_state_and_thresholds(client: TestClient) -> None:
+    await add_model()
+    initial = client.get("/api/v1/monitoring/schedules/mdl_t", headers=H).json()["data"]
+    assert not initial["configured"] and not initial["enabled"] and initial["baseline_dataset_id"] == "ds_base"
+    client.put("/api/v1/monitoring/schedules/mdl_t", headers=H,
+               json={"cron": "*/15 * * * *", "enabled": False, "report_types": ["monitoring", "validation"]})
+    saved = client.get("/api/v1/monitoring/schedules/mdl_t", headers=H).json()["data"]
+    assert saved["configured"] and not saved["enabled"] and saved["cron"] == "*/15 * * * *"
+    assert saved["report_types"] == ["monitoring", "validation"] and saved["thresholds"]["psi_red"] == 0.25
+
+
 async def test_put_schedule(client: TestClient) -> None:
     await add_model()
     await add_model("mdl_new", lifecycle="documented")

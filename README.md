@@ -9,7 +9,7 @@ A 队的模型风险工厂。它把一份遗留的 SAS / R 模型代码，自动
 需要 Python 3.11–3.13 和 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
-uv sync --all-extras --frozen              # 运行完整流水线和测试所需的依赖
+uv sync --extra data --extra ui --frozen   # 本地 API、模型评分和界面；CI 才安装所有可选适配器
 cp .env.example .env                     # 默认 MRF_LLM_PROVIDER=mock，不需要任何密钥
 uv run pytest                            # 单元测试（模拟 LLM）
 uv run uvicorn mrf.api.app:app --reload  # http://localhost:8000/docs ，健康检查 /healthz
@@ -23,6 +23,7 @@ uv run pre-commit install                # 一次即可
 数据准备完成后，用 API 上传数据集并在启动流水线时传入 `dataset_ids`（或 CLI 的 `--dataset`）。
 `--auto-approve` 仅供本地验证；dev/demo 的 H1/H2 使用审核接口。云端禁止 `MRF_STUBS`。
 
+默认技术栈和可选适配器见 [运行配置](docs/runtime-profiles.md)；监控、阈值和告警操作见 [监控指南](docs/monitoring.md)。
 当前未完成项、依赖和复验命令见 [完成状态](docs/completion-status.md)；
 提交材料与演示讲稿见 [提交包](docs/submission/README.md)。
 

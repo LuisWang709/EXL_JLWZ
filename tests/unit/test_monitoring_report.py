@@ -107,6 +107,23 @@ async def html_of(report: Report) -> str:
     return (await get_blobs().get_bytes(report.artifact.uri)).decode("utf-8")
 
 
+async def test_report_counts_all_unresolved_alerts_and_includes_resolution() -> None:
+    model = await seed(with_batches=False)
+    for i in range(105):
+        alert = Alert(alert_id=f"history_{i}", model_id=model.model_id, severity="amber", kind="data_quality",
+                      message="Quality warning", acknowledged=i % 2 == 0)
+        await get_repo().put(Collections.ALERTS, alert.alert_id, alert)
+    closed = Alert(alert_id="closed", model_id=model.model_id, severity="red", kind="drift", message="Reviewed",
+                   status="closed", closed_by="Reviewer", resolution="Population investigation completed")
+    await get_repo().put(Collections.ALERTS, closed.alert_id, closed)
+    report = await generate(model.model_id)
+    assert report.summary["metrics"]["summary.alerts_open"] == 105
+    assert report.summary["metrics"]["summary.alerts_unacknowledged"] == 52
+    page = await html_of(report)
+    assert "Population investigation completed" in page and "Reviewer" in page
+    assert report.summary["number_check"]["passed"]
+
+
 async def test_report_content_and_number_check() -> None:
     model = await seed()
     report = await MonitoringReportBuilder().build(StepContext(pipeline_id="", model=model))
