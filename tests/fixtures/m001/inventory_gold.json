@@ -1,0 +1,13 @@
+{
+  "language": "sas",
+  "algorithm": "logistic_regression",
+  "purpose": "pd",
+  "target": "default_flag",
+  "features": [
+    "checking_status",
+    "credit_history",
+    "age_band",
+    "duration_months",
+    "log_amount"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "language": "sas",
+  "algorithm": "linear_regression",
+  "purpose": "pricing",
+  "target": "price_margin",
+  "features": [
+    "term_years",
+    "loan_amount",
+    "risk_grade_num",
+    "ltv"
+  ]
+}
