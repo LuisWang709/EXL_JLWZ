@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from mrf.ui.common import STATE_LABEL, WAITING, api, go, guard, state_chip, stepper, when
+from mrf.ui.common import live as live_view
 
 TERMINAL = {"monitoring", "failed"}
 
@@ -103,4 +104,5 @@ def page() -> None:
     state = next((p["state"] for p in pipes if p["pipeline_id"] == pipeline_id), "")
     live = state not in TERMINAL | WAITING
     st.caption("Refreshes every 5 seconds while the pipeline is working." if live else "")
-    st.fragment(_detail, run_every=5 if live else None)(pipeline_id)
+    fragment = live_view(_detail) if live else _detail
+    st.fragment(fragment, run_every=5 if live else None)(pipeline_id)

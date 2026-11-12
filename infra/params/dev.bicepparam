@@ -23,4 +23,5 @@ param llmKeyEnvName = readEnvironmentVariable('LLM_KEY_ENV', 'OPENAI_API_KEY')
 
 // dev: scale to 0 by hand at night (az containerapp update --min-replicas 0) when no pipeline runs
 param apiMinReplicas = 1
-param uiMinReplicas = 0
+// keep one UI replica: with 0 the UI was stopped after a few idle minutes and the next visit waited for a cold start
+param uiMinReplicas = 1
