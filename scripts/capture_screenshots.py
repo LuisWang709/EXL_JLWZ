@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Capture UI screenshots of a running demo (API + Streamlit) for the slides and the tutorial.
 
-    uv run --with playwright python scripts/capture_screenshots.py --ui http://localhost:8501 --out local/doc/screenshots
+    uv run --with playwright python scripts/capture_screenshots.py \\
+        --ui http://localhost:8501 --out local/doc/screenshots
 
 Uses the installed Microsoft Edge (``--channel msedge``; no browser download). The API key is read from
 ``MRF_UI_KEY`` (or ``MRF_API_KEY``). The session lives in the page, so navigation is by clicking the sidebar.
