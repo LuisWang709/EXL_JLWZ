@@ -67,3 +67,7 @@ async def test_trigger_batch_is_scored_and_signed_off_without_rebasing(tmp_path:
     stored = await repo.get(Collections.MODELS, model.model_id, ModelRecord)
     assert stored.tags == model.tags
     assert (await repo.get(Collections.PIPELINES, pipeline.pipeline_id, Pipeline)).dataset_ids == ["healthy"]
+    legacy = await trigger_revalidation(model.model_id, "operator requested validation on original datasets")
+    assert legacy.payload["artifacts"] == {
+        "revalidation_dataset_ids": [], "reference_dataset_id": None, "baseline_run_id": None,
+    }

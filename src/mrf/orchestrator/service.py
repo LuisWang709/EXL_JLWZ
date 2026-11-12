@@ -170,7 +170,11 @@ async def trigger_revalidation(model_id: str, reason: str, dataset_id: str | Non
     )
     if pending.items:
         raise MRFError(MRFCode.INVALID_STATE, "revalidation is already queued; the next batch will be retried later")
-    artifacts: dict[str, Any] = {}
+    # Legacy callers without a batch explicitly request the original validation datasets. Clear a
+    # previous investigation's overrides so checkpoint recovery cannot silently reuse an old batch.
+    artifacts: dict[str, Any] = {
+        "revalidation_dataset_ids": [], "reference_dataset_id": None, "baseline_run_id": None,
+    }
     if dataset_id:
         from mrf.contracts.models import Dataset
         from mrf.monitoring.registrar import TAG_BASELINE_DATASET, TAG_BASELINE_RUN
