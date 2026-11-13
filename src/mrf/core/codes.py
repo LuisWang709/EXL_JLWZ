@@ -1,4 +1,4 @@
-"""MRF return codes (plan section "返回码"). Frozen with API contract v1.
+"""MRF return codes (plan section "Return codes"). Frozen with API contract v1.
 
 Every error that leaves the API, the orchestrator or an agent must carry one of these codes.
 """

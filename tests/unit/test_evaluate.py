@@ -32,7 +32,7 @@ async def test_strict_exit_and_raw_evidence(
     assert await evaluate.main(["--runs", "1", "--strict", "--out-dir", str(tmp_path)]) == expected
     evidence = await asyncio.to_thread(lambda: json.loads(next(tmp_path.glob("*.json")).read_text("utf-8")))
     assert evidence["meta"]["validation_complete"] is False
-    assert "不可用于报告" in evaluate.to_markdown(evidence["meta"], evidence["summary"])
+    assert "NOT REPORTABLE" in evaluate.to_markdown(evidence["meta"], evidence["summary"])
 
 
 async def test_require_real_llm_refuses_mock_before_running(monkeypatch: pytest.MonkeyPatch) -> None:

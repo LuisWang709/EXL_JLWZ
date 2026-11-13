@@ -1,7 +1,7 @@
-# 提交邮件草稿（尚未发送）
+# Submission email draft (not sent)
 
-发件人：队长的 UCD 邮箱。收件人：按赛事正式通知填写，当前未提供。
-主题建议：EXL Hackathon 2026 - Challenge 04 - Team A - Model Risk Factory
+Sender: team lead's UCD email. Recipient: use the official competition notice; not entered here.
+Suggested subject: EXL Hackathon 2026 - Challenge 04 - Team A - Model Risk Factory
 
 Dear organisers,
 
@@ -17,5 +17,5 @@ limitations against the final version. Include the team-approved AI tools declar
 Kind regards,
 Team A
 
-发送前：成员确认声明、A3 签核数字和 RAI、确认数据许可、最终 CI、部署版本与附件一致。
-发送后：保存原始邮件或赛事接收回执。当前不要将此草稿当作已发送的证据。
+Before sending: confirm member declarations, A3 number/RAI sign-off, data licenses, final CI, matching deployment revision and attachments.
+After sending: archive the original email or receipt. This draft is not proof of submission.

@@ -1,18 +1,29 @@
-# 演示脚本（目标 2 分 50 秒，留 10 秒余量）
+# Demo recording outline: approximately 2 minutes 50 seconds
 
-录制前：确认 API `/readyz` 正常、UI 可登录，保存部署 commit、LLM provider/model，关闭通知并隐藏密钥。
-使用有明确权限的样本。若使用 mock，开头和视频说明必须标注 mock；不得称为真实 LLM 验收。
-先按 `scripts/seed_demo.py` 跑演示准备，再录正常操作。脚本审批仅代表演示，不冒充独立人工签核。
+This outline shows an already processed M001 example. Show historical decisions as historical decisions. Loading/waiting segments may be cut. If using a mock LLM, label the opening frame "Mock LLM demo". Label scripted decisions "Demo approval records".
 
-| 时间 | 画面 / 操作 | 英文旁白 |
+| Time | Recording action | Spoken English |
 | --- | --- | --- |
-| 0:00–0:20 | Overview 与模型清单 | Model Risk Factory connects legacy code to documentation, validation and monitoring. Each result retains its supporting evidence. |
-| 0:20–0:45 | M001 说明书及 evidence，显示评级 | The agent drafts a cited document. Deterministic checks verify the evidence and reject invented variables or unsupported numbers. |
-| 0:45–1:05 | Review queue 展示 H1；人工点击批准 | A human approves the documentation. When it needs changes, the reviewer returns comments to the next draft. |
-| 1:05–1:35 | Models / Python rebuild，启动或查看重建，打开代码和证书 | The rebuild produces a Python score function and tests each reference record. The certificate binds the result to the generated code hash. Our present legacy fixture scores use Python reproduction. |
-| 1:35–2:00 | 验证报告与 H2 | Tool results supply performance, stability and fairness metrics. Missing evidence remains unassessed. A human records the validation decision at H2. |
-| 2:00–2:30 | Monitoring：红色漂移、被拒批次及返回验证 | Quality failures reject a batch before scoring. Red drift raises an alert and sends the model back to validation and another sign-off. These monitoring batches are synthetic. |
-| 2:30–2:50 | 架构图或最后一页 | The prototype preserves an auditable workflow. Our next acceptance steps are real LLM evaluation, independent legacy exports and a measured manual baseline. |
+| 0:00-0:12 | Overview: point to model, pending-review, and alert counts | This is Model Risk Factory. It helps banks document old models, check their results, and watch for problems over time. |
+| 0:12-0:24 | Expand the new-model upload form; point to code/development/validation inputs. Do not start another pipeline | Users upload model code and data here. Next, we will look at a loan-risk model that has already been processed. |
+| 0:24-0:36 | Models: select M001, Classification; show language, algorithm, purpose | The system first identifies the model. This one is written in SAS and predicts whether a loan will default. |
+| 0:36-0:49 | Documentation: scroll through purpose/method/limits and point to evidence references | AI then writes a document explaining how the model works and its limits. References help us find the supporting evidence. |
+| 0:49-1:00 | Show the document rating table: rules/60, reviewer/40, passed | Rules and an AI reviewer check the document. This score measures the quality of the document. |
+| 1:00-1:11 | Review queue: show the model's recorded H1 decision in Recent decisions | H1 is the first human review: checking whether the document is correct. The reviewer and decision are recorded here. |
+| 1:11-1:24 | Models, M001, Python rebuild: expand existing Rebuilt Python code near def score; do not start another rebuild | Next, the system produces Python scoring code. The goal is to keep the original calculation and produce the same results in Python. |
+| 1:24-1:40 | Point to records, mismatches, max abs diff, then Parity certificate | The system checks each result and saves a certificate. These reference scores were simulated in Python. Independent checks still need real SAS or R outputs. |
+| 1:40-1:55 | Reports: choose validation; show performance, stability, fairness | The report checks prediction quality, changes in the data, and differences between groups. The numbers come from calculation tools. |
+| 1:55-2:05 | Point to an actual finding or unassessed dimension; otherwise show the conclusion without inventing a problem | Matching the old model can still mean poor performance. The report lists problems and marks checks with missing evidence as unassessed. |
+| 2:05-2:15 | Review queue: show recorded H2 decision. If M001 currently awaits H2, show its Validation report and pending state without approving it just for the video | H2 is the second human review. A person checks the validation results and decides whether the model can be used. |
+| 2:15-2:27 | Monitoring: select M001 and show the existing PSI trend | When new data arrives, the system checks again. These synthetic batches show how changes can be detected. |
+| 2:27-2:39 | Alerts: select a red drift alert, expand evidence/handling history, show cause and revalidation task | When the change is too large, the system raises an alert and sends the new batch back for validation and another human review. |
+| 2:39-2:50 | Select a data_quality alert, show why its batch was rejected, end on the evidence/handling record | If the data has serious problems, that batch is rejected before scoring. The workflow keeps evidence of what happened and why. |
 
-导出 MP4 后检查：总时长不超过 3 分钟、所有文字可读、旁白与画面对应、无密钥/个人数据泄漏。
-上传后用未登录窗口检查访问权限；把真实链接加入提交邮件。当前尚无已录制或已发布的视频链接。
+For a live approval shot, use only a real pending review after inspecting its material. Never approve a red report merely to advance the recording. Replace the relevant historical-record shot with one of these alternatives:
+
+| Shot | Action | Spoken English |
+| --- | --- | --- |
+| H1 live | Read the document, enter the actual review comment, click that task's Approve, show success | After checking the document, I approve it. The system records the decision and continues to the Python rebuild. |
+| H2 live | Read Validation report, record the decision/conditions, approve only if the result is accepted | After checking the results, I record the review decision. Once approved, the system registers the model and sets up monitoring. |
+
+The bilingual recording companion is local-only at local/doc/demo-script.md.

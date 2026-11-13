@@ -1,40 +1,40 @@
-# 监控与告警
+# Monitoring and alerts
 
-`monitoring` 表示模型已通过 H2 并登记持续监控。它不会自动训练新模型，也不会无限重复整条流水线。
-新批次先做质量检查，再用通过一致性验证的 Python 代码评分，对照健康基线计算评分 PSI、特征 CSI，以及有标签时的 Gini 变化。
+`monitoring` means the model passed H2 and was registered for ongoing checks. It does not automatically train models or repeat the entire pipeline indefinitely.
+New batches pass quality checks, then are scored with parity-proven Python code. Score PSI, feature CSI, and labeled Gini change are compared with the healthy baseline.
 
-## 何时触发
+## Triggers
 
-当前默认值来自 `config/pipeline.yaml`，页面通过 `GET /api/v1/monitoring/schedules/{model_id}` 获取实际阈值。
+Defaults: `config/pipeline.yaml`. The UI reads actual thresholds from `GET /api/v1/monitoring/schedules/{model_id}`.
 
-| 条件 | 结果 |
+| Condition | Result |
 | --- | --- |
-| 行数为零、缺声明列、schema 失败或缺失率超过 red 阈值 | 红色 data_quality 告警，拒绝评分；不触发模型重验证 |
-| 行数低于 min_rows 或缺失率超过 amber 阈值 | 黄色 data_quality 告警，继续评分；批次至少为黄色 |
-| PSI / CSI ≥ 0.10 且 ≤ 0.25 | 黄色 drift 告警 |
-| PSI / CSI > 0.25，或相对基线的 Gini 下降 > 0.05 | 红色 drift 告警，尝试将触发批次送回 usability_run → 验证报告 → H2 |
-| 没有可比较的漂移或表现证据 | 黄色告警，明确标为未评估，不显示绿色结论 |
-| 缺少监控基线、评分执行错误等系统故障 | 红色 system 告警，并保留任务失败原因 |
+| Zero rows, missing declared columns, schema failure, missing rate above red threshold | Red data_quality alert; refuse scoring; no model revalidation |
+| Rows below min_rows or missing rate above amber threshold | Amber data_quality alert; continue scoring; batch at least amber |
+| PSI/CSI >= 0.10 and <= 0.25 | Amber drift alert |
+| PSI/CSI > 0.25 or Gini drop > 0.05 | Red drift alert; attempt triggering-batch usability run -> validation report -> H2 |
+| No comparable drift/performance evidence | Amber, explicitly unassessed rather than green |
+| Missing baseline, scoring error, other system failure | Red system alert; job failure reason retained |
 
-同一模型、批次、告警类型使用稳定 ID；重试不会重复告警。已记录的批次不重复评分。
-当前实现以单副本 API 为前提，进程内按模型串行；扩展到多副本需要共享队列 / 分布式锁。
+Stable IDs for model/batch/alert kind prevent duplicate alerts. Recorded batches are not scored twice.
+The current single-replica API serializes work per model in-process; multiple replicas need a shared queue/distributed locks.
 
-## 重验证与基线
+## Revalidation and baseline
 
-红色漂移的重验证使用触发的监控数据集，并在 H2 审核页、报告 summary 和新 Run 中记录该批次。
-它不会只重跑原来的开发数据。已有重验证任务或 H2 尚未结束时，后续红色告警保留待处理状态；后续监控轮次在前一个调查完成后继续提交。
-关闭尚未提交的告警表示人工已处理，不再自动补提该告警。
-H2 通过后仍保留原健康基线，避免把漂移批次自动当成“新正常”。需要换基线时应单独审查数据和模型变更。
+Red-drift revalidation uses the triggering dataset, recorded on H2, the report summary, and new Run. It does not merely rerun development data.
+If an investigation/H2 is active, later red alerts remain pending; later monitoring ticks submit them after the earlier investigation finishes.
+Closing an unsubmitted alert records human handling and prevents its automatic resubmission.
+H2 approval keeps the original healthy baseline. Changing the baseline requires separate data/model-change review.
 
-## 页面操作
+## UI actions
 
-1. 选择模型，检查基线与保存的启停状态；可上传清洗后的 monitoring_batch 数据，不能用原始训练表替代评分输入。
-2. “Process new batches” 启动后台任务；页面每隔几秒刷新状态，可离开页面，任务仍继续。
-3. 在 Alerts 中按 open / acknowledged / closed 筛选、翻页并查看证据。
-4. Acknowledge 记录接手人和时间；Close 必须填写处理说明，记录关闭人和时间。重复提交保留首次处理记录。
-5. Cron 使用 UTC，只控制周期报告。云端每小时的 timer 检查新批次；暂停 schedule 会停止自动处理。报告按钮会在启用时先处理待处理批次，再生成报告。
+1. Select the model; inspect baseline and enabled state. Upload cleaned monitoring_batch data, not raw training tables.
+2. **Process new batches** starts a background job. The page refreshes; leaving does not cancel the job.
+3. Filter Alerts by open/acknowledged/closed, page through them, inspect evidence.
+4. Acknowledge records owner/time; Close requires a resolution and records who/when. Repeats preserve original handling.
+5. Cron uses UTC for periodic reports. An hourly cloud timer checks new batches. Pausing stops automatic processing. With an enabled schedule, the report button processes pending batches before reporting.
 
-确认或关闭不会修改历史监控指标、抹掉红色批次或代替 H2 签核。监控报告区分未解决和未确认告警，显示最近告警的处理记录，汇总数量包括完整历史。
-当前通知渠道是应用内告警列表、监控报告和日志；没有实现邮件 / Teams / Slack 推送。`queue_sla` 是预留契约类型，目前没有自动触发器。
+Acknowledging/closing does not change metrics, erase red batches, or replace H2. Reports distinguish unresolved/unacknowledged alerts, show handling, and count full history.
+Channels are in-app alerts, reports, logs; email/Teams/Slack are not implemented. `queue_sla` is reserved with no automatic trigger.
 
-API 的确认 / 关闭接口都要求 `X-Operator`；新字段为增量兼容，老的 `acknowledged` 字段仍保留。
+Acknowledge/close API calls require `X-Operator`. New fields are additive; legacy `acknowledged` remains supported.

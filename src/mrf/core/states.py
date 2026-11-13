@@ -1,4 +1,4 @@
-"""Pipeline states (plan section "流水线状态") and the allowed transitions.
+"""Pipeline states (plan section "Pipeline states") and the allowed transitions.
 
 The orchestrator (A1) is the only writer of ``Pipeline.state``. UI (A4) and API use
 :data:`ALLOWED_TRANSITIONS` to reject illegal operations with MRF-3201.

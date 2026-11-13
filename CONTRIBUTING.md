@@ -1,38 +1,40 @@
-# 协作规则
+# Contributing
 
-## 分支
+## Branches
 
-| 分支 | 用途 |
+| Branch | Purpose |
 | --- | --- |
-| `main` | 受保护；只接受 PR；合并即自动部署 dev（A4 的 CD 上线后） |
-| `feat/a1-*` `feat/a2-*` `feat/a3-*` `feat/a4-*` | 个人功能分支，从 `main` 拉出，小步提交，尽快开 PR |
-| `fix/*` | 修 bug |
-| tag `v*` | 部署 demo 环境；`v1.0.0` 为提交版本 |
+| `main` | Protected; changes arrive through PRs. Merges trigger dev deployment once CD is enabled |
+| `feat/a1-*` `feat/a2-*` `feat/a3-*` `feat/a4-*` | Individual feature branches from `main`; make small commits and open PRs early |
+| `fix/*` | Bug fixes |
+| Tags `v*` | Demo releases; `v1.0.0` is the planned submission version |
 
 ```bash
-git switch main && git pull
+git switch main
+git pull
 git switch -c feat/a2-parity-suite
-# ... commit ...
-git push -u origin feat/a2-parity-suite   # 然后在 GitHub 开 PR
+# Make and commit changes.
+git push -u origin feat/a2-parity-suite
+# Open a pull request.
 ```
 
-## 提交信息
+## Commit messages
 
-`<type>(<scope>): <summary>`，type 取 `feat` `fix` `docs` `test` `refactor` `chore` `ci`，scope 用模块名，例如 `feat(orchestrator): add parity retry loop`。
+Use `<type>(<scope>): <summary>`. Types: feat, fix, docs, test, refactor, chore, ci. Use the module as scope, for example `feat(orchestrator): add parity retry loop`.
 
-## PR 与评审
+## Pull requests and review
 
-- CI 必须绿：ruff、mypy、pytest（mock LLM）。
-- 评审搭档：A1↔A2、A3↔A4，12 小时内完成。
-- **契约文件**（`openapi.yaml`、`src/mrf/contracts/`、`src/mrf/core/`、`config/pipeline.yaml`）的任何改动都必须由 A1 批准。只允许新增可选字段；删字段、改字段名要走 `/api/v2`。
-- 每天 21:00 站会前，把当天的交付以 PR 或链接形式贴到看板。
+- CI must pass: Ruff, mypy, pytest with mock LLM.
+- Review pairs: A1/A2 and A3/A4; target a response within 12 hours.
+- Changes to `openapi.yaml`, `src/mrf/contracts/`, `src/mrf/core/`, or `config/pipeline.yaml` require A1 approval. Only add optional fields; field removal/renaming requires `/api/v2`.
+- Before the daily 21:00 stand-up, link deliverables or PRs on the project board.
 
-## 代码约定
+## Code conventions
 
-- 跨模块只通过 `mrf.contracts.agents` 中的 Protocol 和 MCP 工具对接，不直接 import 别人的内部实现。
-- 失败统一 `raise MRFError(MRFCode.X, ...)`，不要返回 `None` 或裸异常。
-- 阈值只从 `mrf.config.get_policy()` 读取，不要写死在代码里。
-- 智能体不自己计算数字：所有数字都来自工具（MCP）或 MLflow。
-- 只有 A1 的编排器负责重试计数；LLM 的瞬时错误重试已在 `mrf.llm` 里统一处理。
-- 真实数据、密钥、`.env` 永远不进 git。测试夹具放 `tests/fixtures/`，每个 < 1 MB。
-- 测试默认使用 mock LLM；调用真实 LLM 的测试标 `@pytest.mark.llm`，CI 不跑。
+- Integrate modules through `mrf.contracts.agents` Protocols and MCP tools, not another module's internal implementation.
+- Raise `MRFError(MRFCode.X, ...)` on failure; do not return `None` or unstructured exceptions.
+- Read thresholds from `mrf.config.get_policy()` rather than hard-coding them.
+- Agents obtain numeric facts from tools or MLflow; LLMs must not invent them.
+- The orchestrator owns quality-retry counters. Transient LLM retries are handled in `mrf.llm`.
+- Never commit real data, secrets, or `.env`. Fixtures belong in `tests/fixtures/`, each smaller than 1 MB.
+- Tests use mock LLM by default; mark real-provider tests `@pytest.mark.llm`. CI excludes them.
