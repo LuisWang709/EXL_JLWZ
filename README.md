@@ -1,99 +1,245 @@
-# Model Risk Factory（智能体模型风险工厂）— EXL Hackathon C04 · A 队
+# Model Risk Factory
 
-A 队的模型风险工厂。它把一份遗留的 SAS / R 模型代码，自动处理为 **清单记录 → SS1/23 说明书 → 评级 → Python 重建与逐笔一致性证明 → 可用性运行与验证报告 → 部署与持续监控**。流程中有 2 道人工关卡（H1 说明书批准、H2 验证签核）。
+An agent-assisted workflow for documenting, rebuilding, validating, and monitoring legacy financial models. Built by Team A for **EXL x UCD Data & AI Hackathon 2026, Challenge 04: Agentic model risk factory**.
 
-> 执行计划：[C04 A队执行计划 — 智能体模型风险工厂.md](C04%20A队执行计划%20—%20智能体模型风险工厂.md) · API 契约：[openapi.yaml](openapi.yaml) · 分工与接口：[docs/team/](docs/team/README.md) · 架构：[docs/architecture.md](docs/architecture.md)
+Upload a SAS, R, or Python model and its supporting data. The factory creates an inventory record, drafts an evidence-linked document, checks its quality, rebuilds supported SAS/R scoring logic in Python, compares individual predictions against reference scores, generates validation reports, and monitors new batches. People make the documentation and validation approval decisions.
 
-## 快速开始
+## The problem and intended benefit
 
-需要 Python 3.11–3.13 和 [uv](https://docs.astral.sh/uv/)。
+Banks maintain models in different languages, often with incomplete documentation. Understanding a model, checking a migration, assembling validation evidence, and following up on changes can require repeated manual work across teams.
 
-```bash
-uv sync --extra data --extra ui --frozen   # 本地 API、模型评分和界面；CI 才安装所有可选适配器
-cp .env.example .env                     # 默认 MRF_LLM_PROVIDER=mock，不需要任何密钥
-uv run pytest                            # 单元测试（模拟 LLM）
-uv run uvicorn mrf.api.app:app --reload  # http://localhost:8000/docs ，健康检查 /healthz
-uv run python -m mrf.run --model M001 --auto-approve   # 真实模块 + mock LLM；不传数据集会跳过可用性评分
-uv run --extra ui streamlit run src/mrf/ui/app.py      # 界面 http://localhost:8501（连接本地 API）
-uv run pre-commit install                # 一次即可
-```
+Model Risk Factory connects these tasks in one recorded workflow. Its intended benefit is less repeated preparation and handover work, consistent checks, and easier access to evidence. **Measured time savings and ROI are not yet available:** the manual baseline has not been recorded. The challenge's indicative bank portfolio and validation times are problem context, not measured prototype results.
 
-真实 LLM：在 `.env` 里设 `MRF_LLM_PROVIDER`（`azure_openai` / `openai` / `github_models`）和对应的 endpoint 或 key，见 `.env.example`。
+## Challenge coverage
 
-数据准备完成后，用 API 上传数据集并在启动流水线时传入 `dataset_ids`（或 CLI 的 `--dataset`）。
-`--auto-approve` 仅供本地验证；dev/demo 的 H1/H2 使用审核接口。云端禁止 `MRF_STUBS`。
-
-默认技术栈和可选适配器见 [运行配置](docs/runtime-profiles.md)；监控、阈值和告警操作见 [监控指南](docs/monitoring.md)。
-用于演示不同验证等级的 R / SAS 合成模型已解压到 [红黄绿测试模型](models/synthetic_validation/README.md)，各语言三组，包含源代码、数据、参考包及实测报告。
-当前未完成项、依赖和复验命令见 [完成状态](docs/completion-status.md)；
-提交材料与演示讲稿见 [提交包](docs/submission/README.md)。
-
-## 云端环境
-
-| 环境 | 用途 | 部署方式 |
+| Requirement | Implementation | Evidence and boundary |
 | --- | --- | --- |
-| dev | 集成测试、评估 | 合并进 main 且 CI 变绿后，`cd-dev` 自动构建并部署 |
-| demo | 评审演示，11/13 冻结 | 手动触发 `cd-demo`，使用 dev 上验证过的同一镜像 |
+| Document 3-5 models and build inventory records | Four core examples, M001-M004; classification, inventory, cited documentation, document rating | M003 currently covers inventory/documentation; its trained scoring artifact and required data are not supplied |
+| Rebuild a SAS/R model in Python with parity proof | Rebuild agent, restricted scoring execution, per-record comparison, downloadable code and certificate | M001/M002/M004 have local verification; references are Python reproductions, not independent SAS/R exports |
+| Generate performance, stability, and fairness reports | Metrics library, analysis/validation reports, numeric source ledger and rendered-number checks | Suitable labels, reference populations, and segment columns are required; missing evidence remains unassessed |
+| Monitor drift and trigger revalidation | Quality checks, PSI/CSI, Gini change, alerts, periodic reports, return to H2 | Monitoring uses registered batches and does not automatically retrain models |
 
-两个环境都运行在 Azure Container Apps（API + Streamlit UI + 每小时一次的监控任务）上，LLM 是 Azure OpenAI gpt-5-mini，数据存 Cosmos DB，全部通过托管身份访问。地址和 API key 请私下向 A4 索取，不要贴进 issue 或代码。部署细节见 [infra/README.md](infra/README.md) 和 [docs/architecture.md](docs/architecture.md#azure-部署swedencentralazure-for-students)。
+[Completion status](docs/completion-status.md) separates implementation, local verification, historical cloud evidence, and outstanding acceptance. [Rebuild verification](docs/submission/rebuild-verification.json) explicitly records its mock LLM and simulated approvals.
 
-```bash
-curl -s <API>/readyz                     # runtime 字段：存储后端、LLM 模型、防护开关
-MRF_EVAL_API_KEY=<key> uv run python scripts/evaluate.py --api <API> --runs 5 --write   # 端到端评估 → docs/evaluation.md
+## End-to-end workflow
+
+```mermaid
+flowchart TD
+    A[Upload code, reference package and data] --> B[Screen inputs and identify model]
+    B --> C[Draft evidence-linked documentation]
+    C --> D{Document checks pass?}
+    D -->|Revise with feedback| C
+    D -->|Pass| E{H1: human document approval}
+    E -->|Approve| F[Generate Python scoring code]
+    E -->|Return comments| C
+    F --> G{Per-record parity passes?}
+    G -->|Retry with differences| F
+    G -->|Pass| H[Check data quality and score datasets]
+    H --> I[Build analysis and validation reports]
+    I --> J{H2: human validation sign-off}
+    J -->|Approve| K[Register model and monitoring baseline]
+    J -->|Reject| F
+    K --> L[Check and score new batches]
+    L -->|Red drift: revalidate triggering batch| H
 ```
 
-## 安全措施
+| Step | What it does | Result or next action |
+| --- | --- | --- |
+| Receive and screen | Check file/archive limits, selected personal-data patterns, and prompt-injection patterns | Model/pipeline IDs; invalid input rejected |
+| Identify | Combine static parsing and LLM extraction for language, algorithm, purpose, variables, target | Classification, evidence, confidence; uncertain cases go to manual review |
+| Document | Use code, profiles, templates, and knowledge excerpts to explain the model and limits | Versioned Markdown document and evidence references |
+| Rate | Rule checks worth 60 points plus a separate LLM review worth 40 | Score, vetoes, edit requests; up to three drafting attempts |
+| H1 approval | A person reviews documentation | Recorded approval, or comments for another draft |
+| Rebuild | Translate supported SAS/R scoring logic; parameter transcription is a fallback | Candidate Python code; existing Python source can skip translation |
+| Prove parity | Run code and compare every reference record | Parity result and code-hash-bound certificate on success; up to five attempts |
+| Score and measure | Check dataset quality, execute proven code, calculate applicable metrics | Saved predictions and metrics; invalid data refused |
+| Report | Assemble analysis/validation views and recheck displayed numbers | HTML reports, findings, warnings, recommendations |
+| H2 sign-off | A person reviews validation evidence | Recorded decision; approval registers lifecycle state and monitoring |
+| Monitor | Compare new batches with the saved baseline | Metrics, alerts, reports; red drift returns the triggering batch to validation/H2 |
 
-- **输入防护**：上传的代码、压缩包内容、表单字段和审核意见都会检查个人数据（卡号、IBAN、NINO、PPSN，数据文件里的邮箱，MRF-1004）和提示词注入（包括评级操纵，MRF-1005）。报错不回显匹配到的内容。
-- **人工关卡**：说明书（H1）和验证结论（H2）必须由人批准，审批人记录在 `X-Operator`。
-- **数字可追溯**：报告中的每个数字都来自指标工具并经过复核，不由 LLM 生成。
-- **限时**：每一步都有时限（`config/pipeline.yaml: timeouts`），超时转人工审核（MRF-4001）。
+Retries are bounded. Uncertain identification, exhausted retries, and recoverable workflow errors enter the manual queue. Unexpected failures retain error/audit records. H1/H2 pause and resume through recorded decisions and checkpoints.
 
-详见 [docs/responsible_ai.md](docs/responsible_ai.md)。
+**The `deployed` state is internal lifecycle registration.** It does not deploy a model into a bank's lending system. Approval of drift revalidation preserves the original healthy baseline; a shifted population is not silently accepted as the new baseline.
 
-## 仓库结构
+## Three different assessments
+
+| Assessment | Meaning | Distinction |
+| --- | --- | --- |
+| Document score, 0-100 | Completeness, evidence, variable consistency, methodology, limitations, clarity | A good document can describe a poor model |
+| Validation traffic lights | Consistency, predictive performance, stability, fairness | Matching references does not establish model quality |
+| Monitoring traffic lights | New-batch quality, distribution drift, available performance change | Red data quality differs from red model drift |
+
+Binary credit-risk metrics include AUC, Gini, KS, Brier, Hosmer-Lemeshow calibration, PSI/CSI, and group outcome measures. Regression scoring records RMSE, MAE, and R-squared. The report performance light currently centers on Gini; a broader regression-specific validation view is future work.
+
+Thresholds are project policy in [config/pipeline.yaml](config/pipeline.yaml), not automatic regulatory approval: confidence 0.7; document pass score 80 with no veto; all reference records within absolute tolerance `1e-6`; PSI/CSI amber from 0.10 through 0.25, red above 0.25 or Gini drop greater than 0.05.
+
+## Examples and required inputs
+
+| Model | Source | Purpose | Supported example |
+| --- | --- | --- | --- |
+| M001 | SAS logistic scorecard | Loan default probability | Documentation, rebuild, parity, scoring, monitoring |
+| M002 | R binomial GLM | Credit-card default | Documentation, rebuild, parity, scoring |
+| M003 | Python XGBoost training code | Behavioural scoring | Inventory/documentation; trained model/data still required |
+| M004 | SAS linear regression | Synthetic pricing | Documentation, rebuild, parity, regression scoring |
+
+See [legacy examples](models/legacy/README.md) and [six synthetic R/SAS examples](models/synthetic_validation/README.md). The latter provide controlled green/amber/red performance cases, not evidence of real customer generalization.
+
+A reference package contains:
 
 ```text
-openapi.yaml               统一 REST API 契约 v1（A1 审批变更）
-config/pipeline.yaml       所有阈值：置信度、重试次数、评级分数线、一致性容差、PSI 阈值
-src/mrf/
-  core/                    响应信封、返回码 MRF-xxxx、流水线状态机               A1
-  contracts/               共享领域模型 + 各模块接口 Protocol（冻结）            A1
-  api/                     FastAPI 应用、/api/v1 路由、任务执行器                A1
-  orchestrator/            LangGraph 状态机、重试策略、H1/H2 关卡、审计          A1
-  llm/                     LLM 封装：指数退让、token/费用、mock                  A1
-  storage/                 Repository（SQLite / Cosmos）、Blob                   A1
-  mcp_server/              MCP 工具服务（/mcp），tools/ 下每个工具归各自负责人    A1 框架
-  agents/classify/         模型识别智能体                                        A1
-  data/                    读取任意格式、清洗、pandera schema                    A2
-  agents/rebuild/          SAS/R → Python 重建 + 一致性                          A2
-  rag/                     知识库（SS1/23、模板、映射表）                        A3
-  agents/doc/              说明书智能体                                          A3
-  rating/                  评级器（规则 60 + LLM 评审 40）                       A3
-  validation/              AUC/Gini/KS/Brier/HL/PSI/CSI/公平性                   A3
-  reporting/               分析报告、验证报告                                    A3
-  monitoring/              数据质量、漂移、告警、定期报告                        A4
-  ui/                      Streamlit 界面                                        A4
-models/legacy/             “遗留”模型 M001–M004                                 A2
-tests/{unit,integration,fixtures}                                               全员（fixtures: A2）
-templates/                 说明书/报告/证书 Jinja 模板                           A3（证书 A2，监控 A4）
-kb/                        RAG 原始资料                                          A3
-infra/  docker/  .github/  Bicep、Dockerfile、CI/CD                              A4
-docs/                      架构、分工、设计文档、评估、RAI 说明
-data/                      本地数据（git 忽略）
+model.sas / model.R     Source calculation
+manifest.json           Record ID, score column, scoring metadata
+coefficients.json       Fitted parameter estimates
+input_sample.csv        Inputs for parity comparison
+legacy_scores.csv       Reference score for each input record
 ```
 
-## 团队
+Upload these files together, plus cleaned development/validation datasets when available. M001/M002/M004 can use built-in demo fixtures when matched by name. A raw training table alone cannot prove parity. This is not a universal SAS/R compiler.
 
-| 成员 | 角色 | 负责 | 任务书 |
-| --- | --- | --- | --- |
-| A1 Albert | 队长、智能体架构师 | 编排器、API、识别、MCP 框架、集成 | [A1.md](docs/team/A1.md) |
-| A2 | 建模与重建 | 遗留模型、数据清洗、重建、一致性 | [A2.md](docs/team/A2.md) |
-| A3 | 文档、验证与 RAI | RAG、说明书、评级、验证、报告 | [A3.md](docs/team/A3.md) |
-| A4 | DevOps、监控与展示 | CI/CD、Azure、监控、界面、视频/PPT | [A4.md](docs/team/A4.md) |
+## Local setup
 
-协作规则见 [CONTRIBUTING.md](CONTRIBUTING.md)；把自己的模块接入流水线见 [docs/team/integration.md](docs/team/integration.md)。
+Requirements: Python 3.11-3.13 and [uv](https://docs.astral.sh/uv/).
 
-## AI 工具声明
+```bash
+uv sync --extra data --extra ui --frozen
+```
 
-开发过程中使用了 AI 编程助手（Claude Code）辅助编写代码和文档，所有内容都经过负责人审阅。每位成员的使用范围见 [docs/ai_tools_declaration.md](docs/ai_tools_declaration.md)。运行时用到的 LLM（Azure OpenAI）及其边界见 [docs/responsible_ai.md](docs/responsible_ai.md)。
+Copy `.env.example` to `.env` using your shell:
+
+```powershell
+# PowerShell
+Copy-Item .env.example .env
+```
+
+```bash
+# Bash
+cp .env.example .env
+```
+
+Default `MRF_LLM_PROVIDER=mock` needs no model-service key. Set a local `MRF_API_KEY` in `.env`. Start the API and UI in separate terminals:
+
+```bash
+uv run uvicorn mrf.api.app:app --reload
+```
+
+```bash
+uv run --extra ui streamlit run src/mrf/ui/app.py
+```
+
+- API reference: `http://localhost:8000/docs`
+- Liveness: `http://localhost:8000/healthz`
+- Readiness/runtime configuration: `http://localhost:8000/readyz`
+- UI: `http://localhost:8501`
+
+Sign in with the API key and operator name. The UI uses the local API by default; configure `API_BASE_URL` for another endpoint. Review decisions and alert handling record the operator.
+
+An offline CLI check is also available:
+
+```bash
+uv run python -m mrf.run --model M001 --auto-approve
+```
+
+`--auto-approve` is local verification only, not independent human sign-off. Without dataset IDs, usability scoring is skipped. For validation, upload cleaned datasets through the UI/API and associate their IDs with the pipeline, or use the CLI's `--dataset` option.
+
+For real calls, set `MRF_LLM_PROVIDER` to `azure_openai`, `openai`, or `github_models` and use the corresponding [.env.example](.env.example) settings. Report real-provider acceptance separately from mock tests.
+
+## UI guide
+
+| Page | Actions |
+| --- | --- |
+| Overview | See model/task/review/alert counts; upload code/data; start a pipeline |
+| Pipelines | Follow progress, attempts, errors, usage, history, artifacts |
+| Review queue | Review H1 documents, H2 reports, manual escalations; record decisions |
+| Models | Browse classification, document versions, rebuilds, runs, reports; download code/certificates |
+| Monitoring | Upload/process batches, inspect charts, acknowledge/close alerts, configure schedules, build reports |
+
+A standalone rebuild does not approve H1/H2 or advance the original pipeline. Acknowledging records ownership; closing an alert requires a resolution and does not change metrics. See [rebuild troubleshooting](docs/rebuild-troubleshooting.md) and [monitoring](docs/monitoring.md).
+
+## Architecture
+
+- **FastAPI:** REST API, authentication, guards, request IDs, asynchronous job endpoints.
+- **LangGraph:** state transitions, bounded retries, human interruptions, recovery, audit.
+- **Agents:** classification, documentation, document review, rebuild candidates.
+- **MCP tools:** parsing, profiling, inventory/knowledge retrieval, restricted execution, parity, metrics. Mounted at `/mcp`; in-process calls are the default.
+- **Knowledge retrieval:** local TF-IDF with numpy and optional FAISS. Azure AI Search is not implemented.
+- **Storage:** SQLite/local files by default; Cosmos DB/Azure Files in the cloud; Azure Blob is optional.
+- **MLflow:** optional parameter/metric logging; scoring works without it.
+- **Streamlit:** review and monitoring UI.
+
+Read [architecture diagrams](docs/architecture.md), [runtime profiles](docs/runtime-profiles.md), [OpenAPI](openapi.yaml), and [A1 design](docs/design/A1_orchestrator_api_design.md).
+
+```text
+src/mrf/
+  api/                 REST routes and shared API behavior
+  orchestrator/        Workflow, retries, review gates, assembly
+  agents/              Classification, documentation, rebuild
+  data/                Readers, preprocessing helpers, schemas
+  rating/              Rubric, deterministic checks, LLM review
+  validation/          Model and population metrics
+  reporting/           HTML reports and numeric source ledger
+  monitoring/          Quality, drift, alerts, reports
+  mcp_server/          Agent tool service and gateways
+  llm/                 Provider clients, retries, usage
+  storage/             Repository and file adapters
+  ui/                  Streamlit interface
+models/                Legacy and synthetic examples
+tests/                 Unit/integration tests and reference fixtures
+templates/             Documents, reports, certificates
+kb/                    Team summaries, templates, mapping notes
+infra/ docker/         Azure infrastructure and containers
+docs/                  Design, handoffs, evaluation, submissions
+```
+
+## Azure and evaluation
+
+Infrastructure defines dev/demo environments on Azure Container Apps in `swedencentral`, with API, UI, and hourly monitoring trigger. Azure access uses managed identity. The API uses a **single replica** because its queue is in-process.
+
+| Environment | Delivery |
+| --- | --- |
+| dev | Successful main-branch CI triggers `cd-dev` |
+| demo | Manually trigger `cd-demo` with the image validated in dev |
+
+Infrastructure definitions and a historical working environment do not prove latest-version acceptance. Check `/readyz` and retain revision, provider/model, dataset IDs, and evaluation artifacts. Never commit or post credentials. See [infrastructure](infra/README.md).
+
+Set the API key in `MRF_EVAL_API_KEY`, then evaluate a real-provider deployment:
+
+```bash
+uv run python scripts/evaluate.py --api <dev-api> --model M001 --dataset <development-id> --dataset <validation-id> --runs 5 --strict --require-real-llm --report-out var/eval/evaluation.md
+```
+
+The [checked-in evaluation](docs/evaluation.md) is mock and unsuitable for real LLM speed/cost or business claims. The [manual baseline](docs/submission/manual-baseline.md) is unmeasured.
+
+## Responsible AI and limits
+
+- Input screening detects selected identifiers/injection patterns, not every privacy or security risk.
+- Documentation retains evidence; unsupported claims are filtered/checked. Reports validate numbers against recorded facts.
+- H1/H2 record explicit decisions. Role names do not establish organizational independence or regulatory compliance.
+- Generated code runs with policy checks, a subprocess, and time limits. Strong multi-tenant isolation remains production work.
+- Independent SAS/R reference exports remain an acceptance requirement.
+- Alerts appear in-app, in reports, and in logs; email/Teams/Slack delivery is not implemented.
+- The knowledge base contains team summaries; complete official SS1/23 text ingestion and interpretation require separate review.
+
+See [Responsible AI](docs/responsible_ai.md) and [completion status](docs/completion-status.md).
+
+## Development checks and team
+
+```bash
+uv sync --all-extras --frozen
+uv run ruff check .
+uv run mypy
+uv run pytest -q
+uv run bandit -c pyproject.toml -r src -ll --skip B608
+```
+
+Tests use mock LLM/isolated storage by default. On restricted Windows environments, place temporary files under the workspace. Contribution/contract-review rules: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+| Member | Responsibility |
+| --- | --- |
+| A1 Albert | Orchestration, API, classification, shared runtime, integration |
+| A2 | Legacy examples, data, rebuild, parity, scoring |
+| A3 | Knowledge, documentation, rating, validation, reports, Responsible AI |
+| A4 | CI/CD, Azure, monitoring, UI, presentation |
+
+Further reading: [team interfaces](docs/team/README.md), [integration](docs/team/integration.md), [execution plan](docs/team-execution-plan.md), [submission materials](docs/submission/README.md).
+
+AI coding assistance is declared in [docs/ai_tools_declaration.md](docs/ai_tools_declaration.md). Runtime AI safeguards and limits are described separately in the Responsible AI note.

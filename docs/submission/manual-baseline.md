@@ -1,17 +1,16 @@
-# 人工基线记录（等待实际计时，禁止填估计数）
+# Manual baseline record: actual timing required
 
-同一模型、同一输入范围，与部署评估的产物质量保持一致。记录主动工作时间，另列审核等待时间。
+Use the same model, input scope, and artifact-quality standard as the deployment evaluation. Record active work and review waiting separately. Do not fill estimates as measurements.
 
-| 项目 | 实测记录 |
+| Item | Measured record |
 | --- | --- |
-| 操作人 / 日期 | 待填写 |
-| 模型 / 数据版本 / 原始代码 commit | 待填写 |
-| 说明书主动工作起止时间及中断 | 待填写 |
-| 重建与一致性测试主动工作起止时间及中断 | 待填写 |
-| 验证报告主动工作时间 | 待填写 |
-| H1 / H2 审核工作和等待时间（分别记录） | 待填写 |
-| 产物路径 / 复核人 / 质量标准 | 待填写 |
-| 适用的人工成本率及来源 | 待确认 |
+| Operator / date | To be completed |
+| Model / data version / source commit | To be completed |
+| Documentation active work start/end and interruptions | To be completed |
+| Rebuild/parity active work start/end and interruptions | To be completed |
+| Validation-report active work | To be completed |
+| H1/H2 review work and waiting, separately | To be completed |
+| Artifacts / reviewer / quality standard | To be completed |
+| Applicable hourly rate and source | To be confirmed |
 
-负责人确认后才可设置 `config/pipeline.yaml: reporting.manual_baseline_hours`；阈值配置需 A1 审批。
-成本差额应披露是否含审核人工、计算资源与维护成本。组合规模的推算需标注为情景预测。
+Set config/pipeline.yaml: reporting.manual_baseline_hours only after owner confirmation and A1 approval. Disclose whether cost comparisons include reviewers, compute, and maintenance. Portfolio-scale extrapolations must be labeled scenarios.

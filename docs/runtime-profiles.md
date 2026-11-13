@@ -1,24 +1,24 @@
-# 运行配置
+# Runtime profiles
 
-默认只维护两条验收路径。可选适配器保留兼容性，单独验收，不要求每次演示都启用。
+Two default acceptance paths are maintained. Optional adapters remain available and are accepted separately; a demo does not need every adapter.
 
-| 路径 | 配置 / 依赖 | 数据与任务 |
+| Path | Configuration / dependencies | Files and jobs |
 | --- | --- | --- |
-| 本地开发与演示 | `uv sync --extra data --extra ui --frozen`；`MRF_ENV=local`；SQLite；mock LLM | 本地文件、SQLite 业务库和检查点，API 内后台任务；mock 结果不可当真实 LLM KPI |
-| Azure dev / demo | Dockerfile 已安装 data/azure/mlops；Cosmos、托管身份、Azure OpenAI | Azure Files 保存文件与检查点（SQLite 使用 DELETE journal），单副本 API 执行后台任务；定时容器调用 API |
+| Local development/demo | `uv sync --extra data --extra ui --frozen`; `MRF_ENV=local`; SQLite; mock LLM | Local files, SQLite records/checkpoints, API background jobs; mock results are not real LLM KPIs |
+| Azure dev/demo | Docker installs data/azure/mlops; Cosmos, managed identity, Azure OpenAI | Azure Files for files/checkpoints (SQLite DELETE journal); single API replica runs jobs; scheduled container calls API |
 
-前端只通过 REST API 获取数据和监控阈值，不再单独读取一份本地监控配置。修改阈值后重启 API；修改单个模型的 schedule 可直接通过监控页保存。
+The frontend reads data and monitoring thresholds through REST only. Restart the API after policy changes. Save individual model schedules on the Monitoring page.
 
-可选功能：
+Optional features:
 
-- `--extra mlops`：额外记录 MLflow 实验。未安装也可评分；默认 SQLite，可显式指定 tracking URI。
-- `MRF_BLOB_ACCOUNT_URL`：Azure Blob 文件适配器，设置后需要额外的权限与容器验收；默认仍使用本地 / Azure Files。
-- `--extra rag`：可选 FAISS 加速检索；未安装时使用 numpy 本地索引。Azure AI Search 尚未实现。
-- `MRF_TOOL_TRANSPORT=http`：远程 MCP 调试；默认 inprocess，不额外部署一个工具服务。
-- `MRF_STUBS` / `Registry.stubs`：本地显式实验 / 测试替身，云环境禁止；缺少真实实现一律失败，不隐式切换。
+- `--extra mlops`: additional MLflow experiment logging; scoring works without it. Default SQLite, explicit tracking URI supported.
+- `MRF_BLOB_ACCOUNT_URL`: Azure Blob adapter; permissions and container need separate acceptance. Local/Azure Files is the default.
+- `--extra rag`: optional FAISS acceleration; otherwise local numpy retrieval. Azure AI Search is not implemented.
+- `MRF_TOOL_TRANSPORT=http`: remote MCP debugging; default in-process, no separate tool deployment.
+- `MRF_STUBS` / `Registry.stubs`: explicit local experiments/test doubles only; forbidden in cloud. Missing real implementations fail rather than silently falling back.
 
-全部适配器的开发 / CI 检查继续使用 `uv sync --all-extras --frozen`。默认路径改变不删除现有适配器，也不改变 REST / Protocol 的已有调用方式。
+Adapter development/CI use `uv sync --all-extras --frozen`. Default profiles do not remove adapters or change REST/Protocol calls.
 
-单次评分或监控批次共享数据快照，跨操作不缓存文件。分析与验证报告共享同一次事实收集，各自渲染、校验数字和保存；H2 签核仍独立保留。
+Scoring and monitoring share file snapshots within one operation, with no cross-operation file cache. Analysis/validation reports share fact collection, then render, check numbers, and save separately. H2 remains explicit.
 
-云部署、真实 LLM、原系统参考评分的剩余验收依赖统一记录在 [完成状态](completion-status.md)。
+Outstanding cloud, real LLM, and independent reference-score acceptance: [completion status](completion-status.md).

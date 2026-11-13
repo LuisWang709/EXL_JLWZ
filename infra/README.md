@@ -22,7 +22,7 @@ Design constraints (from A1's runtime):
 
 ## First deployment
 
-The step-by-step tutorial (portal screens, checks, troubleshooting) is the team doc "Azure 部署操作手册";
+The step-by-step tutorial (portal screens, checks, troubleshooting) is the team doc "Azure deployment operations guide";
 the commands in short:
 
 ```bash

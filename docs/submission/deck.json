@@ -15,7 +15,7 @@
       "lead": "Legacy models spread evidence across code, spreadsheets and review documents",
       "points": ["Reviewers need to connect each claim and number to its source.", "Code migration needs record-level agreement with an independently supplied reference.", "Monitoring findings must return to an accountable reviewer."],
       "notes": "Explain the user problem without assigning an invented manual cost or completion time.",
-      "sources": ["C04 A队执行计划 — 智能体模型风险工厂.md"]
+      "sources": ["docs/team-execution-plan.md"]
     },
     {
       "title": "The model lifecycle",

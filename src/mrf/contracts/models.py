@@ -83,7 +83,7 @@ class ClassificationResult(_Base):
 
 
 class ModelRecord(_Base):
-    """Model inventory entry (清单记录)."""
+    """Model inventory entry."""
 
     model_id: str
     name: str
