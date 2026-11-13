@@ -119,4 +119,4 @@ Dockerfile). An explicit `MLFLOW_TRACKING_URI` overrides this with a tracking se
 | `Cosmos container ... does not exist` | `COSMOS_ACCOUNT` was empty at deploy time, or a new collection was added | redeploy; new collections must be added to `modules/cosmos-db.bicep` |
 | Cosmos free tier error on `shared.bicep` | the subscription already has a free-tier account | deploy with `-p deployCosmos=false` and tell A4 |
 | logs | - | `az containerapp logs show -n mrf-api-dev -g rg-mrf-a-dev --follow` |
-| save money at night (dev) | one replica always on uses credit | `az containerapp update -n mrf-api-dev -g rg-mrf-a-dev --min-replicas 0` (only when no pipeline runs) |
+| save money at night (dev) | one replica always on uses credit | `az containerapp update -n mrf-api-dev -g rg-mrf-a-dev --min-replicas 0` (only when no pipeline runs); same for `mrf-ui-dev` (the next visitor then waits for a cold start) |

@@ -21,6 +21,7 @@ param llmModel = readEnvironmentVariable('LLM_MODEL', 'gpt-5-mini')
 param llmBaseUrl = readEnvironmentVariable('LLM_BASE_URL', '')
 param llmKeyEnvName = readEnvironmentVariable('LLM_KEY_ENV', 'OPENAI_API_KEY')
 
-// dev: scale to 0 by hand at night (az containerapp update --min-replicas 0) when no pipeline runs
+// dev: scale to 0 by hand at night (az containerapp update --min-replicas 0) when no pipeline runs.
+// UI stays warm too: at 0 the first visitor waits 10-30 s for a cold start before the sign-in page appears.
 param apiMinReplicas = 1
-param uiMinReplicas = 0
+param uiMinReplicas = 1
