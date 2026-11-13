@@ -1,0 +1,22 @@
+{
+  "name": "SIM_SAS_GREEN_GINI_GE_040",
+  "language": "SAS",
+  "source": "upload_together/SIM_SAS_GREEN_GINI_GE_040.sas",
+  "expected_rag": "green",
+  "calibration": {
+    "seed": 113,
+    "development": {
+      "auc": 0.8562222222222222,
+      "gini": 0.7124444444444444,
+      "hl_p_value": 0.0866847827123951,
+      "disparate_impact": 1.0
+    },
+    "validation": {
+      "auc": 0.8808961738898045,
+      "gini": 0.7617923477796089,
+      "hl_p_value": 0.05585382743642228,
+      "disparate_impact": 1.0
+    },
+    "psi_score": 0.04631090072145668
+  }
+}

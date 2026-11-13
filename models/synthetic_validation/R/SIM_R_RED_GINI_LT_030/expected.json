@@ -1,0 +1,22 @@
+{
+  "name": "SIM_R_RED_GINI_LT_030",
+  "language": "R",
+  "source": "upload_together/SIM_R_RED_GINI_LT_030.R",
+  "expected_rag": "red",
+  "calibration": {
+    "seed": 258,
+    "development": {
+      "auc": 0.5758801564722618,
+      "gini": 0.15176031294452352,
+      "hl_p_value": 0.38081704855415904,
+      "disparate_impact": 1.0
+    },
+    "validation": {
+      "auc": 0.5444967994310099,
+      "gini": 0.08899359886201985,
+      "hl_p_value": 0.4857845987685795,
+      "disparate_impact": 1.0
+    },
+    "psi_score": 0.05819601434073104
+  }
+}

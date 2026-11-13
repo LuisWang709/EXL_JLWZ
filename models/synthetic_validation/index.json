@@ -1,0 +1,150 @@
+{
+  "synthetic": true,
+  "models": [
+    {
+      "name": "SIM_R_GREEN_GINI_GE_040",
+      "language": "R",
+      "source": "upload_together/SIM_R_GREEN_GINI_GE_040.R",
+      "expected_rag": "green",
+      "calibration": {
+        "seed": 113,
+        "development": {
+          "auc": 0.8562222222222222,
+          "gini": 0.7124444444444444,
+          "hl_p_value": 0.0866847827123951,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.8808961738898045,
+          "gini": 0.7617923477796089,
+          "hl_p_value": 0.05585382743642228,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.04631090072145668
+      },
+      "path": "R/SIM_R_GREEN_GINI_GE_040"
+    },
+    {
+      "name": "SIM_SAS_GREEN_GINI_GE_040",
+      "language": "SAS",
+      "source": "upload_together/SIM_SAS_GREEN_GINI_GE_040.sas",
+      "expected_rag": "green",
+      "calibration": {
+        "seed": 113,
+        "development": {
+          "auc": 0.8562222222222222,
+          "gini": 0.7124444444444444,
+          "hl_p_value": 0.0866847827123951,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.8808961738898045,
+          "gini": 0.7617923477796089,
+          "hl_p_value": 0.05585382743642228,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.04631090072145668
+      },
+      "path": "SAS/SIM_SAS_GREEN_GINI_GE_040"
+    },
+    {
+      "name": "SIM_R_AMBER_GINI_030_040",
+      "language": "R",
+      "source": "upload_together/SIM_R_AMBER_GINI_030_040.R",
+      "expected_rag": "amber",
+      "calibration": {
+        "seed": 336,
+        "development": {
+          "auc": 0.6824507580810102,
+          "gini": 0.3649015161620204,
+          "hl_p_value": 0.06496759995837817,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.6753374014520511,
+          "gini": 0.35067480290410225,
+          "hl_p_value": 0.054837417006510444,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.054745302148637445
+      },
+      "path": "R/SIM_R_AMBER_GINI_030_040"
+    },
+    {
+      "name": "SIM_SAS_AMBER_GINI_030_040",
+      "language": "SAS",
+      "source": "upload_together/SIM_SAS_AMBER_GINI_030_040.sas",
+      "expected_rag": "amber",
+      "calibration": {
+        "seed": 336,
+        "development": {
+          "auc": 0.6824507580810102,
+          "gini": 0.3649015161620204,
+          "hl_p_value": 0.06496759995837817,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.6753374014520511,
+          "gini": 0.35067480290410225,
+          "hl_p_value": 0.054837417006510444,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.054745302148637445
+      },
+      "path": "SAS/SIM_SAS_AMBER_GINI_030_040"
+    },
+    {
+      "name": "SIM_R_RED_GINI_LT_030",
+      "language": "R",
+      "source": "upload_together/SIM_R_RED_GINI_LT_030.R",
+      "expected_rag": "red",
+      "calibration": {
+        "seed": 258,
+        "development": {
+          "auc": 0.5758801564722618,
+          "gini": 0.15176031294452352,
+          "hl_p_value": 0.38081704855415904,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.5444967994310099,
+          "gini": 0.08899359886201985,
+          "hl_p_value": 0.4857845987685795,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.05819601434073104
+      },
+      "path": "R/SIM_R_RED_GINI_LT_030"
+    },
+    {
+      "name": "SIM_SAS_RED_GINI_LT_030",
+      "language": "SAS",
+      "source": "upload_together/SIM_SAS_RED_GINI_LT_030.sas",
+      "expected_rag": "red",
+      "calibration": {
+        "seed": 258,
+        "development": {
+          "auc": 0.5758801564722618,
+          "gini": 0.15176031294452352,
+          "hl_p_value": 0.38081704855415904,
+          "disparate_impact": 1.0
+        },
+        "validation": {
+          "auc": 0.5444967994310099,
+          "gini": 0.08899359886201985,
+          "hl_p_value": 0.4857845987685795,
+          "disparate_impact": 1.0
+        },
+        "psi_score": 0.05819601434073104
+      },
+      "path": "SAS/SIM_SAS_RED_GINI_LT_030"
+    }
+  ],
+  "policy": {
+    "gini_green": 0.4,
+    "gini_amber": 0.3,
+    "hl_p_value_amber": 0.05,
+    "disparate_impact_green": 0.8,
+    "psi_amber": 0.1
+  }
+}

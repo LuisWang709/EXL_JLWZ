@@ -24,6 +24,7 @@ uv run pre-commit install                # 一次即可
 `--auto-approve` 仅供本地验证；dev/demo 的 H1/H2 使用审核接口。云端禁止 `MRF_STUBS`。
 
 默认技术栈和可选适配器见 [运行配置](docs/runtime-profiles.md)；监控、阈值和告警操作见 [监控指南](docs/monitoring.md)。
+用于演示不同验证等级的 R / SAS 合成模型已解压到 [红黄绿测试模型](models/synthetic_validation/README.md)，各语言三组，包含源代码、数据、参考包及实测报告。
 当前未完成项、依赖和复验命令见 [完成状态](docs/completion-status.md)；
 提交材料与演示讲稿见 [提交包](docs/submission/README.md)。
 

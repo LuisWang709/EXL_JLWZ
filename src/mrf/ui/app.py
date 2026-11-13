@@ -14,11 +14,14 @@ from typing import Any
 import streamlit as st
 
 from mrf.ui import common
-from mrf.ui.views import models, monitoring, overview, pipelines, reviews
 
 st.set_page_config(page_title="Model Risk Factory", page_icon=":material/fact_check:", layout="wide")
 
 if common.signed_in():
+    # Imported only after sign-in: the views pull in pandas/plotly, which take seconds to load on the
+    # 0.25-vCPU container and would otherwise delay the first render of the sign-in form.
+    from mrf.ui.views import models, monitoring, overview, pipelines, reviews
+
     st.markdown(common.CSS, unsafe_allow_html=True)
     common.PAGES.update(
         overview=st.Page(
