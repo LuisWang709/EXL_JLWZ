@@ -10,6 +10,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from mrf.ui.common import api, flash, guard, rag_chip, track_job, when
+from mrf.ui.common import live as live_view
 
 SCORE_KEY = "__score__"
 COLORS = {"green": "#2e8b57", "amber": "#d08c00", "red": "#c0392b"}
@@ -188,7 +189,8 @@ def page() -> None:
     if st.button("Refresh monitoring", key="refresh-monitoring"):
         st.rerun()
     active = st.session_state.get(f"monitoring-job-{model_id}-active", False)
-    st.fragment(_detail, run_every=3 if active else None)(model_id, by_id[model_id])
+    fragment = live_view(_detail) if active else _detail
+    st.fragment(fragment, run_every=3 if active else None)(model_id, by_id[model_id])
 
 
 def _detail(model_id: str, model: dict[str, Any]) -> None:

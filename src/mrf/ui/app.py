@@ -8,6 +8,9 @@ With ``MRF_API_KEY`` set, visitors must type that key to sign in; the UI then ca
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import streamlit as st
 
 from mrf.ui import common
@@ -31,6 +34,21 @@ if common.signed_in():
     )
     nav = st.navigation(list(common.PAGES.values()))
     client = common.api()
+    # the GETs this page makes anyway, fetched in parallel so its own calls are served from the client cache
+    prefetch: dict[str, list[Callable[[], Any]]] = {
+        "Overview": [
+            client.models,
+            client.pipelines,
+            lambda: client.reviews("pending"),
+            lambda: client.alerts(acknowledged=False),
+            client.datasets,
+        ],
+        "Pipelines": [client.pipelines, client.models],
+        "Review queue": [lambda: client.reviews("pending"), lambda: client.reviews(None), client.models],
+        "Models": [client.models],
+        "Monitoring": [client.models],
+    }
+    client.warm([client.health, *prefetch.get(nav.title, [])])
     with st.sidebar:
         st.caption(f"Signed in as **{client.operator}**")
         st.caption(f"API: {client.base_url}")

@@ -1,15 +1,34 @@
 """HTTP client for the UI: the API's envelope in, plain dicts out. Owner: A4.
 
 No Streamlit and no storage imports here, so it is unit-tested with httpx.MockTransport.
+
+Speed: Streamlit re-runs the whole page on every click, and each run used to make every call again, one after the
+other (each a round trip UI -> API -> Cosmos). GET lists are now kept for ``LIST_TTL`` seconds and HTML of a stored
+document / report / rebuild for ``IMMUTABLE_TTL``; any POST/PUT/DELETE empties the cache (it may change any list);
+:meth:`ApiClient.warm` runs a page's independent GETs in parallel; :meth:`ApiClient.fresh` bypasses the cache for
+views that refresh themselves while a job runs. The client lives in one user's session, so nothing is shared.
 """
 
 from __future__ import annotations
 
+import os
+import threading
 import time
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+LIST_TTL = float(os.environ.get("MRF_UI_CACHE_SECONDS", "8"))
+HEALTH_TTL = 30.0
+IMMUTABLE_TTL = 300.0
+
+
+def _freeze(params: Any) -> tuple[tuple[str, str], ...]:
+    return tuple(sorted((str(k), str(v)) for k, v in (params or {}).items()))
 
 
 @dataclass
@@ -39,9 +58,48 @@ class ApiClient:
         self.operator = operator
         self._http = http or httpx.Client(base_url=self.base_url, timeout=timeout, transport=transport)
         self._http.headers["X-API-Key"] = api_key
+        self._cache: dict[tuple[Any, ...], tuple[float, Any]] = {}
+        self._lock = threading.Lock()
+        self._bypass = 0
+
+    # ------------------------------------------------------------------------------------------ cache
+    def _cached(self, key: tuple[Any, ...], ttl: float, fetch: Callable[[], Any]) -> Any:
+        if ttl > 0 and not self._bypass:
+            with self._lock:
+                hit = self._cache.get(key)
+            if hit and hit[0] > time.monotonic():
+                return hit[1]
+        value = fetch()  # errors are raised, never cached
+        if ttl > 0:
+            with self._lock:
+                self._cache[key] = (time.monotonic() + ttl, value)
+        return value
+
+    def clear_cache(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+    @contextmanager
+    def fresh(self) -> Iterator[None]:
+        """Read through the cache (self-refreshing views must show the current state)."""
+        self._bypass += 1
+        try:
+            yield
+        finally:
+            self._bypass -= 1
+
+    def warm(self, calls: list[Callable[[], Any]]) -> None:
+        """Run independent GETs in parallel; the page's own (sequential) calls then hit the cache.
+        Errors are ignored here - the page's call raises them again and shows them."""
+        if not calls or self._bypass:
+            return
+        with ThreadPoolExecutor(max_workers=min(6, len(calls))) as pool:
+            for future in [pool.submit(call) for call in calls]:
+                with suppress(Exception):
+                    future.result()
 
     # ------------------------------------------------------------------------------------------ plumbing
-    def _call(self, method: str, path: str, **kw: Any) -> dict[str, Any]:
+    def _request(self, method: str, path: str, **kw: Any) -> dict[str, Any]:
         try:
             resp = self._http.request(method, path, **kw)
         except httpx.HTTPError as exc:
@@ -52,14 +110,33 @@ class ApiClient:
             raise ApiError(resp.status_code, f"HTTP-{resp.status_code}", resp.text[:300]) from exc
         if resp.status_code >= 400 or body.get("status") == "error":
             errors = body.get("errors") or [{}]
-            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", ""),
-                           errors, body.get("request_id") or resp.headers.get("X-Request-ID"))
+            raise ApiError(
+                resp.status_code,
+                str(body.get("code", resp.status_code)),
+                body.get("message", ""),
+                errors,
+                body.get("request_id") or resp.headers.get("X-Request-ID"),
+            )
         return body
 
-    def data(self, method: str, path: str, **kw: Any) -> Any:
-        return self._call(method, path, **kw).get("data")
+    def _call(self, method: str, path: str, ttl: float = 0.0, **kw: Any) -> dict[str, Any]:
+        if method != "GET":
+            try:
+                return self._request(method, path, **kw)
+            finally:
+                self.clear_cache()  # a change can show up in any list
+        key = ("json", path, _freeze(kw.get("params")))
+        body: dict[str, Any] = self._cached(key, ttl, lambda: self._request(method, path, **kw))
+        return body
 
-    def text(self, path: str, **params: Any) -> str:
+    def data(self, method: str, path: str, ttl: float = 0.0, **kw: Any) -> Any:
+        return self._call(method, path, ttl, **kw).get("data")
+
+    def text(self, path: str, ttl: float = 0.0, **params: Any) -> str:
+        text: str = self._cached(("text", path, _freeze(params)), ttl, lambda: self._text(path, **params))
+        return text
+
+    def _text(self, path: str, **params: Any) -> str:
         try:
             resp = self._http.get(path, params=params)
         except httpx.HTTPError as exc:
@@ -69,22 +146,26 @@ class ApiClient:
                 body = resp.json()
             except ValueError:
                 body = {}
-            raise ApiError(resp.status_code, str(body.get("code", resp.status_code)), body.get("message", resp.text),
-                           request_id=body.get("request_id") or resp.headers.get("X-Request-ID"))
+            raise ApiError(
+                resp.status_code,
+                str(body.get("code", resp.status_code)),
+                body.get("message", resp.text),
+                request_id=body.get("request_id") or resp.headers.get("X-Request-ID"),
+            )
         return resp.text
 
     def close(self) -> None:
         self._http.close()
 
     def items(self, path: str, **params: Any) -> tuple[list[dict[str, Any]], int]:
-        """First page of a paged list (max 100 items) and the total."""
+        """First page of a paged list (max 100 items) and the total; kept ``LIST_TTL`` seconds."""
         params.setdefault("page_size", 100)
-        page = self.data("GET", path, params={k: v for k, v in params.items() if v is not None}) or {}
+        page = self.data("GET", path, LIST_TTL, params={k: v for k, v in params.items() if v is not None}) or {}
         return list(page.get("items", [])), int(page.get("pagination", {}).get("total", 0))
 
     # ------------------------------------------------------------------------------------------ health
     def health(self) -> dict[str, Any]:
-        return dict(self.data("GET", "/readyz"))
+        return dict(self.data("GET", "/readyz", HEALTH_TTL))
 
     # ------------------------------------------------------------------------------------------ pipelines
     def pipelines(self, state: str | None = None) -> list[dict[str, Any]]:
@@ -162,7 +243,7 @@ class ApiClient:
         return self.items(f"/api/v1/models/{model_id}/documents")[0]
 
     def document_html(self, model_id: str, doc_id: str) -> str:
-        return self.text(f"/api/v1/models/{model_id}/documents/{doc_id}", format="html")
+        return self.text(f"/api/v1/models/{model_id}/documents/{doc_id}", IMMUTABLE_TTL, format="html")
 
     def ratings(self, model_id: str, doc_id: str) -> list[dict[str, Any]]:
         return self.items(f"/api/v1/models/{model_id}/documents/{doc_id}/ratings")[0]
@@ -177,10 +258,10 @@ class ApiClient:
         return dict(self.data("POST", f"/api/v1/models/{model_id}/rebuilds", json=body))
 
     def rebuild_code(self, model_id: str, rebuild_id: str) -> str:
-        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", format="code")
+        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", IMMUTABLE_TTL, format="code")
 
     def rebuild_certificate(self, model_id: str, rebuild_id: str) -> str:
-        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", format="certificate")
+        return self.text(f"/api/v1/models/{model_id}/rebuilds/{rebuild_id}", IMMUTABLE_TTL, format="certificate")
 
     def runs(self, model_id: str) -> list[dict[str, Any]]:
         return self.items(f"/api/v1/models/{model_id}/runs")[0]
@@ -189,15 +270,21 @@ class ApiClient:
         return self.items(f"/api/v1/models/{model_id}/reports", type=report_type)[0]
 
     def report_html(self, model_id: str, report_id: str) -> str:
-        return self.text(f"/api/v1/models/{model_id}/reports/{report_id}", format="html")
+        return self.text(f"/api/v1/models/{model_id}/reports/{report_id}", IMMUTABLE_TTL, format="html")
 
     # ------------------------------------------------------------------------------------------ monitoring
     def metrics(self, model_id: str) -> list[dict[str, Any]]:
-        return list((self.data("GET", f"/api/v1/monitoring/models/{model_id}/metrics") or {}).get("items", []))
+        return list(
+            (self.data("GET", f"/api/v1/monitoring/models/{model_id}/metrics", LIST_TTL) or {}).get("items", [])
+        )
 
     def alerts(
-        self, model_id: str | None = None, acknowledged: bool | None = None, status: str | None = None,
-        page: int = 1, page_size: int = 25,
+        self,
+        model_id: str | None = None,
+        acknowledged: bool | None = None,
+        status: str | None = None,
+        page: int = 1,
+        page_size: int = 25,
     ) -> tuple[list[dict[str, Any]], int]:
         params: dict[str, Any] = {"model_id": model_id, "status": status, "page": page, "page_size": page_size}
         if acknowledged is not None:
@@ -205,18 +292,31 @@ class ApiClient:
         return self.items("/api/v1/monitoring/alerts", **params)
 
     def acknowledge_alert(self, alert_id: str) -> dict[str, Any]:
-        return dict(self.data("POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge",
-                              headers={"X-Operator": self.operator}))
+        return dict(
+            self.data(
+                "POST", f"/api/v1/monitoring/alerts/{alert_id}/acknowledge", headers={"X-Operator": self.operator}
+            )
+        )
 
     def close_alert(self, alert_id: str, resolution: str) -> dict[str, Any]:
-        return dict(self.data("POST", f"/api/v1/monitoring/alerts/{alert_id}/close",
-                              json={"resolution": resolution}, headers={"X-Operator": self.operator}))
+        return dict(
+            self.data(
+                "POST",
+                f"/api/v1/monitoring/alerts/{alert_id}/close",
+                json={"resolution": resolution},
+                headers={"X-Operator": self.operator},
+            )
+        )
 
     def schedule(self, model_id: str) -> dict[str, Any]:
         return dict(self.data("GET", f"/api/v1/monitoring/schedules/{model_id}"))
 
     def put_schedule(
-        self, model_id: str, cron: str, enabled: bool, report_types: list[str] | None = None,
+        self,
+        model_id: str,
+        cron: str,
+        enabled: bool,
+        report_types: list[str] | None = None,
     ) -> dict[str, Any]:
         body = {"cron": cron, "enabled": enabled}
         if report_types is not None:

@@ -9,6 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from mrf.ui.common import api, guard, rag_chip, track_job, when
+from mrf.ui.common import live as live_view
 
 
 def _inventory(models: list[dict[str, Any]]) -> None:
@@ -88,7 +89,8 @@ def _documents(model_id: str) -> None:
 
 def _rebuilds(model_id: str) -> None:
     active = st.session_state.get(f"rebuild-job-{model_id}-active", False)
-    st.fragment(_rebuild_detail, run_every=3 if active else None)(model_id)
+    fragment = live_view(_rebuild_detail) if active else _rebuild_detail
+    st.fragment(fragment, run_every=3 if active else None)(model_id)
 
 
 def _rebuild_detail(model_id: str) -> None:

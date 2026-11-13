@@ -107,3 +107,36 @@ def test_error_keeps_request_id_for_support() -> None:
     with pytest.raises(ApiError) as err:
         client.model("m")
     assert err.value.request_id == "r"
+
+
+# ---------------------------------------------------------------------------------------------- cache
+def _count(path: str) -> int:
+    return sum(1 for r in seen if r.url.path == path)
+
+
+def test_lists_are_cached_and_writes_clear_the_cache(client: ApiClient) -> None:
+    client.models()
+    client.models()
+    assert _count("/api/v1/models") == 1  # second call served from the cache
+    client.start_pipeline("M001", [("m001.sas", b"x", "text/plain")])
+    client.models()
+    assert _count("/api/v1/models") == 2  # a POST empties the cache
+
+
+def test_fresh_bypasses_the_cache_and_errors_are_not_cached(client: ApiClient) -> None:
+    client.models()
+    with client.fresh():
+        client.models()
+    assert _count("/api/v1/models") == 2
+    for _ in range(2):
+        with pytest.raises(ApiError):
+            client.rebuilds("nope")
+    assert _count("/api/v1/models/nope/rebuilds") == 2
+
+
+def test_warm_runs_calls_in_parallel_and_fills_the_cache(client: ApiClient) -> None:
+    client.warm([client.models, lambda: client.rebuilds("nope")])  # the failing call is ignored here
+    client.models()
+    assert _count("/api/v1/models") == 1
+    assert client.report_html("mdl_1", "rpt_1") == client.report_html("mdl_1", "rpt_1")
+    assert _count("/api/v1/models/mdl_1/reports/rpt_1") == 1  # stored HTML is immutable

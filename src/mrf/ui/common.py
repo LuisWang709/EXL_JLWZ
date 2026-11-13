@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hmac
 import html
 import os
@@ -187,6 +188,7 @@ def track_job(key: str, label: str) -> dict[str, Any] | None:
     was_busy = st.session_state.get(key + "-active", False)
     st.session_state[key + "-active"] = busy
     if was_busy and not busy:
+        api().clear_cache()  # the job changed data behind the cached lists
         st.rerun()  # refresh artefacts and enable actions once; never resubmit the job
     if busy:
         st.info(f"{label}: {job['status']}. You can leave this page; the task continues in the background.")
@@ -206,3 +208,14 @@ def go(name: str) -> None:
 
 def link(name: str, label: str) -> None:
     st.page_link(PAGES[name], label=label, icon=":material/arrow_forward:")
+
+
+def live(fn: Callable[..., None]) -> Callable[..., None]:
+    """For self-refreshing fragments: read through the client cache so each refresh shows the current state."""
+
+    @functools.wraps(fn)
+    def run(*args: Any, **kwargs: Any) -> None:
+        with api().fresh():
+            fn(*args, **kwargs)
+
+    return run
