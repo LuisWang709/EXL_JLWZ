@@ -1,0 +1,14 @@
+# Gitleaks configuration: the default rules, plus one narrow allowlist.
+#
+# Rendered analysis / validation reports tag every number with the metric it came from
+# (<span class="num" data-key="performance.gini">), so the report can be checked against its sources.
+# generic-api-key reads `data-key="fairness.segments.3.tpr"` as a key assignment with a high-entropy value.
+# Only dotted lower-case metric paths are allowed; any other value in the same files is still scanned.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Metric paths in rendered report HTML (data-key attributes), not credentials"
+regexTarget = "match"
+regexes = ['''data-key="[a-z_]+(\.[a-z0-9_]+)+"''']
